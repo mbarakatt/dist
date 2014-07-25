@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.misc import imread
 
 
+
 ZC=Zip_Codes("../data/zipcode/zipcode.csv")
 print "Done loading the zip codes"
 
