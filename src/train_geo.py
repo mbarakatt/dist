@@ -17,11 +17,12 @@ from mpl_toolkits.basemap import Basemap, shiftgrid
 from jaccard_plot import *
 from statsmodels.graphics.boxplots import violinplot
 import time
+from subprocess import call
 print(" Done")
 
 
 OUTPUT_FOLDER="../results" + time.strftime("%Y.%m.%d.%Hh%mm")
-
+call(['mkdir','-p',OUTPUT_FOLDER])
 
 EARTH_RADIUS=6371
 NEGLIGEABLE_RADIAN=0.005
