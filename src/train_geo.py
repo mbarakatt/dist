@@ -18,6 +18,10 @@ from statsmodels.graphics.boxplots import violinplot
 import time
 print(" Done")
 
+
+OUTPUT_FOLDER="../results" + time.strftime("%Y.%m.%d.%Hh%mm")
+
+
 EARTH_RADIUS=6371
 NEGLIGEABLE_RADIAN=0.005
 jaccard_file_path="../data/language/Ruhlen2014jaccard.txt"
@@ -332,11 +336,15 @@ for i in [0]:
 	min_value=[value[i] for i in argtosort]
 	min_value_param=[value_param[i] for i in argtosort]
 
-	fout=open("../scores/train_geo_out"+time.strftime("%Hh%Mm")+".txt",'w')
+	fout=open(os.path.join(OUTPUT_FOLDER, "train_geo_out") +time.strftime("%Hh%Mm")+".txt",'w')
 	for item in zip(min_value,min_value_param):
 		fout.write(str(item[0])+ ',' + str(item[1].tolist()) + '\n')
 
 	fout.close()
+
+
+#This line will is for the reproducible program.
+print OUTPUT_FOLDER
 
 	"""
 	#res, fval, grid, Jout=scipy.optimize.brute(wrapper_compute_llh, [(mybox[0],mybox[2]),(mybox[1],mybox[3]),(mybox[0],mybox[2]),(mybox[1],mybox[3])], Ns=i , full_output=True, finish=None)
