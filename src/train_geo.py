@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 print("Starting train_geo.py")
 print "Importing modules...",
 import matplotlib
