@@ -9,7 +9,7 @@ import scipy.optimize
 import scipy.special
 #from mpl_toolkits.mplot3d import axes3d
 from  pylab import *
-import random,math,scipy,sys
+import random,math,scipy,sys,os
 import numpy as np
 np.set_printoptions(threshold=np.nan)
 from itertools import product
