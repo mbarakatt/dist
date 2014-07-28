@@ -223,7 +223,7 @@ relatedness_std=np.std(relatedness)
 np.random.seed(seed=int(time.time()))
 
 print "Creating permutations...",
-permutated_relatedness= np.array([np.random.permutation(relatedness)for _ in range(49)])
+permutated_relatedness= np.array([ np.random.permutation(np.random.permutation(relatedness).T).T for _ in range(49)])
 permutated_relatedness_mean=np.mean(permutated_relatedness)
 permutated_relatedness_std=np.std(permutated_relatedness)
 print "Done"
