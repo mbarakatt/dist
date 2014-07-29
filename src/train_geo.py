@@ -21,7 +21,7 @@ from subprocess import call
 print(" Done")
 
 
-OUTPUT_FOLDER="../results" + time.strftime("%Y.%m.%d.%Hh%mm")
+OUTPUT_FOLDER=os.path.join("../results" , time.strftime("%Y.%m.%d.%Hh%mm"))
 call(['mkdir','-p',OUTPUT_FOLDER])
 
 DISTANCE_MASK=7000 #Km
@@ -215,8 +215,10 @@ def get_MASK(M):
 	return (M<=DISTANCE_MASK)
 
 def mean_std_MASK(M,mask,item_in_mask):
-	mean=np.sum(M*mask)/np.sum(mask)
-	return mean , np.sqrt(np.sum(np.power((np.sum(M*mask)/np.sum(mask) - M*mask),2))/np.sum(mask))
+	if len(M.shape < 3):
+		M=np.array([M])
+	mean=np.sum(M*mask,axis=(1,2))/np.sum(mask)
+	return mean, np.sqrt(np.sum(np.power((mean/np.sum(mask) - M*mask),2),axis=(1,2))/np.sum(mask))
 
 
 def llh_bin(dist):
@@ -245,7 +247,9 @@ def mantel_test(M1,M2):
 	item_in_mask=np.sum(mask)
 	M1_mean_mask, M1_std_mask= mean_std_MASK(M1,mask,item_in_mask)
 	M2_mean_mask, M2_std_mask= mean_std_MASK(M2,mask,item_in_mask)
-	
+	print "M1 and M2"
+	print M1_mean_mask, M1_std_mask
+	print M2_mean_mask, M2_std_mask
 	results=1.0/(item_in_mask - 1) * np.sum((M1 - M1_mean_mask)/M1_std_mask*(M2 - M2_mean_mask)/M2_std_mask ,axis=(1,2))
 	print "Mantel test time:", time.time() - t1
 	return -results
