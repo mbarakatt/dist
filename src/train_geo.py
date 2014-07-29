@@ -255,10 +255,10 @@ def compute_llh(dist_L, relatedness, plotviolin=True):
 	corr1=mantel_test(dist_L,np.array([relatedness]))
 	#print list
 	#print corr1
-	plot([0]*50+[0.1]*50,list_corr.tolist()+[corr]+list_corr1.tolist()+[corr1],'.')
-	xlim(-0.05,0.15)
-	title(str(corr-np.mean(list_corr))+ ',' + str( corr1 - np.mean(list_corr1) ) )
-	plt.show()
+	#plot([0]*50+[0.1]*50,list_corr.tolist()+[corr]+list_corr1.tolist()+[corr1],'.')
+	#xlim(-0.05,0.15)
+	#title(str(corr-np.mean(list_corr))+ ',' + str( corr1 - np.mean(list_corr1) ) )
+	#plt.show()
 	#print (50-find_index_in_array(list_corr,corr[0]))/50
 	return (corr1 - np.mean(list_corr1))[0]
 
