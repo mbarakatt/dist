@@ -24,6 +24,8 @@ print(" Done")
 OUTPUT_FOLDER="../results" + time.strftime("%Y.%m.%d.%Hh%mm")
 call(['mkdir','-p',OUTPUT_FOLDER])
 
+DISTANCE_MASK=7000 #Km
+
 EARTH_RADIUS=6371
 NEGLIGEABLE_RADIAN=0.005
 jaccard_file_path="../data/language/Ruhlen2014jaccard.txt"
@@ -202,11 +204,19 @@ def compute_distances(mylines):
 	#print "min_dist_L", dist_L
 	return dist_L
 
-maxdist = 20000.0 #np.max(b)
+maxdist = DISTANCE_MASK #np.max(b)
 bins = np.linspace(0, maxdist, NB_BINS+1) #create NB_BINS bins
 dc = (bins + (bins[1]-bins[0])/2.0)[0:-1]
 best_min = "nan"
 best_sigmoid_params = []
+
+
+def get_MASK(M):
+	return (M<=DISTANCE_MASK)
+
+def mean_std_MASK(M,mask,item_in_mask):
+	mean=np.sum(M*mask)/np.sum(mask)
+	return mean , np.sqrt(np.sum(np.power((np.sum(M*mask)/np.sum(mask) - M*mask),2))/np.sum(mask))
 
 
 def llh_bin(dist):
@@ -224,14 +234,19 @@ np.random.seed(seed=int(time.time()))
 
 print "Creating permutations...",
 permutated_relatedness= np.array([ np.random.permutation(np.random.permutation(relatedness).T).T for _ in range(49)])
-permutated_relatedness_mean=np.mean(permutated_relatedness)
-permutated_relatedness_std=np.std(permutated_relatedness)
+#permutated_relatedness_mean=mean_MASK(permutated_relatedness)
+#permutated_relatedness_std=std_MASK(permutated_relatedness)
 print "Done"
 
-#M1 is a single matrix, M2 can be a array of matrix
+#M1 is a single matrix, M2 can be an array of matrix
 def mantel_test(M1,M2):
 	t1=time.time()
-	results=1.0/(size_dist_L - 1) * np.sum((M1 - np.mean(M1))/np.std(M1)*(M2 - permutated_relatedness_mean)/permutated_relatedness_std ,axis=(1,2))
+	mask=get_MASK(M1)
+	item_in_mask=np.sum(mask)
+	M1_mean_mask, M1_std_mask= mean_std_MASK(M1,mask,item_in_mask)
+	M2_mean_mask, M2_std_mask= mean_std_MASK(M2,mask,item_in_mask)
+	
+	results=1.0/(item_in_mask - 1) * np.sum((M1 - M1_mean_mask)/M1_std_mask*(M2 - M2_mean_mask)/M2_std_mask ,axis=(1,2))
 	print "Mantel test time:", time.time() - t1
 	return -results
 	
@@ -255,10 +270,10 @@ def compute_llh(dist_L, relatedness, plotviolin=True):
 	corr1=mantel_test(dist_L,np.array([relatedness]))
 	#print list
 	#print corr1
-	#plot([0]*50+[0.1]*50,list_corr.tolist()+[corr]+list_corr1.tolist()+[corr1],'.')
-	#xlim(-0.05,0.15)
-	#title(str(corr-np.mean(list_corr))+ ',' + str( corr1 - np.mean(list_corr1) ) )
-	#plt.show()
+	plot([0]*50+[0.1]*50,list_corr.tolist()+[corr]+list_corr1.tolist()+[corr1],'.')
+	xlim(-0.05,0.15)
+	title(str(corr-np.mean(list_corr))+ ',' + str( corr1 - np.mean(list_corr1) ) )
+	plt.show()
 	#print (50-find_index_in_array(list_corr,corr[0]))/50
 	return (corr1 - np.mean(list_corr1))[0]
 
