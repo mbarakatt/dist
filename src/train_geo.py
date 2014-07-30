@@ -24,7 +24,7 @@ print(" Done")
 OUTPUT_FOLDER=os.path.join("../results" , time.strftime("%Y.%m.%d.%Hh%mm"))
 call(['mkdir','-p',OUTPUT_FOLDER])
 
-DISTANCE_MASK=7000 #Km
+DISTANCE_MASK=20000 #Km
 
 EARTH_RADIUS=6371
 NEGLIGEABLE_RADIAN=0.005
@@ -204,6 +204,7 @@ def compute_distances(mylines):
 	#print "min_dist_L", dist_L
 	return dist_L
 
+spear= lambda xs,ys: 1- (6* np.sum(np.power(np.argsort(xs)-np.argsort(ys),2)))/(np.power(len(xs),3)-float(len(xs)))
 maxdist = DISTANCE_MASK #np.max(b)
 bins = np.linspace(0, maxdist, NB_BINS+1) #create NB_BINS bins
 dc = (bins + (bins[1]-bins[0])/2.0)[0:-1]
@@ -243,9 +244,15 @@ permutated_relatedness= np.array([ np.random.permutation(np.random.permutation(r
 #permutated_relatedness_std=std_MASK(permutated_relatedness)
 print "Done"
 
+def spearman_corr(M1,M2):
+	M1_flatten=M1.flatten(M1)
+	M2_flatten=M2.flatten(M2)
+	return spear(M1_flatten,M2_flatten)
 #M1 is a single matrix, M2 can be an array of matrix
 def mantel_test(M1,M2):
 	t1=time.time()
+
+	
 	if len(M2.shape) < 3:
 		M2=np.array([M2])
 	mask=get_MASK(M1)
@@ -259,8 +266,8 @@ def mantel_test(M1,M2):
 	print "Mantel test time:", time.time() - t1
 	return -results
 	
-list_corr=np.sort(mantel_test(dist_indiv,permutated_relatedness))
-corr=mantel_test(dist_indiv,np.array([relatedness]))
+list_corr=np.sort(spearman_corr(dist_indiv,permutated_relatedness))
+corr=spearman_corr(dist_indiv,np.array([relatedness]))
 
 def find_index_in_array(array, c):
 	for i in range(np.size(array)):
@@ -275,8 +282,8 @@ print corr
 
 def compute_llh(dist_L, relatedness, plotviolin=True):
 	#results=1.0/(size_dist_L-1) * np.sum((dist_L - np.mean(dist_L))/np.std(dist_L)*(relatedness - relatedness_mean)/relatedness_std)
-	list_corr1=np.sort(mantel_test(dist_L,permutated_relatedness))
-	corr1=mantel_test(dist_L,relatedness)
+	list_corr1=np.sort(spearman_corr(dist_L,permutated_relatedness))
+	corr1=spearman_corr(dist_L,relatedness)
 	#print list
 	#print corr1
 	#plot([0]*50+[0.1]*50,list_corr.tolist()+[corr]+list_corr1.tolist()+[corr1],'.')
