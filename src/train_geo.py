@@ -100,8 +100,6 @@ exit(1)
 """
 
 
-
-
 #The arc is from A to B and C is the point. Here A, B are point on sphere(or vector starting at origin of sphere) in euclidean 3D space. C is a vector of the same nature
 def get_dist_point_arc(A,B,C):
 	#print "cross",A, B, C
@@ -214,14 +212,17 @@ best_sigmoid_params = []
 def get_MASK(M):
 	return (M<=DISTANCE_MASK)
 
-def mean_std_MASK(M,mask,item_in_mask):
+dist_mask=get_MASK(dist_indiv)#We always use this mask. No matter the differences in the distance matrix when we add a train etc.
+number_item_mask=np.sum(dist_mask)
+
+def mean_std_MASK(M):
 	if len(M.shape) < 3:
 		M=np.array([M])
 	#print "MSHAPE:", (M*mask).shape
-	M_mask=M*mask
-	mean=np.sum(M_mask,axis=(1,2))/np.sum(mask)
+	M_mask=M*dist_mask
+	mean=np.sum(M_mask,axis=(1,2))/number_item_mask
 	#print "MEAN:", mean
-	return mean, np.sqrt(np.sum(np.power(((mean/np.sum(mask)).reshape((M_mask.shape[0],1,1)) - M_mask),2),axis=(1,2))/np.sum(mask))
+	return mean, np.sqrt(np.sum(np.power(((mean/number_item_mask).reshape((M_mask.shape[0],1,1)) - M_mask),2),axis=(1,2))/number_item_mask)
 
 
 def llh_bin(dist):
@@ -248,14 +249,9 @@ def mantel_test(M1,M2):
 	t1=time.time()
 	if len(M2.shape) < 3:
 		M2=np.array([M2])
-	mask=get_MASK(M1)
-	item_in_mask=np.sum(mask)
-	M1_mean_mask, M1_std_mask= mean_std_MASK(M1,mask,item_in_mask)
-	M2_mean_mask, M2_std_mask= mean_std_MASK(M2,mask,item_in_mask)
-	#print "M1 and M2"
-	#print M1_mean_mask, M1_std_mask
-	#print M2_mean_mask, M2_std_mask
-	results=1.0/(item_in_mask - 1) * np.sum(((M1 - M1_mean_mask)*mask)/M1_std_mask*((M2 - M2_mean_mask.reshape((M2.shape[0],1,1)))*mask)/M2_std_mask.reshape((M2.shape[0],1,1)) ,axis=(1,2))
+	M1_mean_mask, M1_std_mask= mean_std_MASK(M1)
+	M2_mean_mask, M2_std_mask= mean_std_MASK(M2)
+	results=1.0/(number_item_mask - 1) * np.sum(((M1*dist_mask - M1_mean_mask))/M1_std_mask*((M2*dist_mask - M2_mean_mask.reshape((M2.shape[0],1,1))))/M2_std_mask.reshape((M2.shape[0],1,1)) ,axis=(1,2))
 	print "Mantel test time:", time.time() - t1
 	return -results
 	
