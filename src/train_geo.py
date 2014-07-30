@@ -126,7 +126,7 @@ NB_BINS=10
 #dist_points_arc=get_dist_point_arc(map(lambda x: x[2], [xs,ys,zs]),map(lambda x: x[0], [xs,ys,zs]), map(lambda x: x[1], [xs,ys,zs]))
 #print dist_points_arc
 
-def dist(p1,p2):
+def dist(c,p2):
     return math.hypot(p2[0]-p1[0],p2[1]-p1[1])
 
 def sigmoidf(d,params):
@@ -175,7 +175,7 @@ def llh_case(dc,IBDc, nb_pairs_c, sigmoid_params):
 	return np.where(nb_pairs_c>0,-nb_pairs_c*s_dc + IBDc*np.log(s_dc*nb_pairs_c) - scipy.special.gammaln(IBDc+1),0)
 """
 
-def compute_distances(mylines):
+def computeDistances(mylines):
 	#print 'myline',mylines[0].p1, mylines[0].p2
 	t,v = map(lambda x: list(get_euclidean_coor(x[0],x[1])), [mylines[0].p1, mylines[0].p2])
 	#print "tv", t,v
@@ -191,6 +191,15 @@ def compute_distances(mylines):
 	np.fill_diagonal(dist_L,0)
 	#print "min_dist_L", dist_L
 	return dist_L
+
+#Performs a weird mantel test on the rank matrices of M1 and M2 (where the rank is taken by row)
+#Note that the result is NOT normalized
+def spearmanMantelTest(M1,M2):
+	t1=time.time()
+	if len(M2.shape)<3:
+		M2=np.array([M2])
+	return 6*np.sum(np.power(np.argsort(a)-np.array([argsort(b)]),2),axis=(1,2))/(np.power(len(b),3)-float(len(b)))	
+
 
 def spear (xs,ys):
 	return [scipy.stats.spearmanr(xs,y)[0] for y in ys]
@@ -246,8 +255,8 @@ def spearman_corr(M1,M2):
 	print "M2_flatten",M2_flatten.shape
 	return spear(M1_flatten,M2_flatten)
 
-list_corr=np.sort(spearman_corr(dist_indiv,permutated_relatedness))
-corr=spearman_corr(dist_indiv,np.array([relatedness]))
+list_corr=np.sort(spearmanMantelTest(dist_indiv,permutated_relatedness))
+corr=spearmanMantelTest(dist_indiv,np.array([relatedness]))
 
 #M1 is a single matrix, M2 can be an array of matrix
 def mantel_test(M1,M2):
@@ -279,8 +288,8 @@ def find_index_in_array(array, c):
 
 def compute_llh(dist_L, relatedness, plotviolin=True):
 	#results=1.0/(size_dist_L-1) * np.sum((dist_L - np.mean(dist_L))/np.std(dist_L)*(relatedness - relatedness_mean)/relatedness_std)
-	list_corr1=np.sort(spearman_corr(dist_L,permutated_relatedness))
-	corr1=spearman_corr(dist_L,relatedness)
+	list_corr1=np.sort(spearmanMantelTest(dist_L,permutated_relatedness))
+	corr1=spearmanMantelTest(dist_L,relatedness)
 	#print list
 	#print corr1
 	#plot([0]*50+[0.1]*50,list_corr.tolist()+[corr]+list_corr1.tolist()+[corr1],'.')
@@ -304,7 +313,7 @@ def wrapper_compute_llh(params):
 	print "LENGTH:", length
 	if  length < 300 or length > 6000:
 		return np.inf
-	a=compute_llh(compute_distances(fittedlines + [line(params[0], params[1], params[2], params[3])]), relatedness)
+	a=compute_llh(computeDistances(fittedlines + [line(params[0], params[1], params[2], params[3])]), relatedness)
 	print "llh: ", a
 	#print "full_iter_time", time.time() - t0
 	return a
@@ -321,7 +330,7 @@ for i in [0]:
 	
 	
 	for these_params in test_params:
-		llh=compute_llh(compute_distances(fittedlines + [line(*map(lambda x : x*2*np.pi/360,these_params))]), relatedness,plotviolin=False)
+		llh=compute_llh(computeDistances(fittedlines + [line(*map(lambda x : x*2*np.pi/360,these_params))]), relatedness,plotviolin=False)
 	value=[]
 	value_param=[]
 	for search_point1 in searchspace_degree:
