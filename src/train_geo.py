@@ -198,10 +198,13 @@ def spearmanMantelTest(M1,M2):
 	t1=time.time()
 	if len(M2.shape)<3:
 		M2=np.array([M2])
-	return 6*np.sum(np.power(np.argsort(a)-np.array([argsort(b)]),2),axis=(1,2))/(np.power(len(b),3)-float(len(b)))	
+	value = 1-6*np.sum(np.power(np.argsort(M1)-np.argsort(M2),2),axis=(1,2))/float(np.power(len(M1),3)-(len(M1)))	
+	if len(value)==1:
+		return value[0]
+	else:
+		return value
 
-
-def spear (xs,ys):
+def spear(xs,ys):
 	return [scipy.stats.spearmanr(xs,y)[0] for y in ys]
 	xs_argsort=np.argsort(xs)
 	ys_argsort=map(lambda y : np.argsort(y),ys)
@@ -252,7 +255,7 @@ def spearman_corr(M1,M2):
 	if len(M2.shape) < 3:
 		M2=np.array([M2])
 	M2_flatten=np.array(map(lambda x : x.flatten(), M2))
-	print "M2_flatten",M2_flatten.shape
+	#print "M2_flatten",M2_flatten.shape
 	return spear(M1_flatten,M2_flatten)
 
 list_corr=np.sort(spearmanMantelTest(dist_indiv,permutated_relatedness))
@@ -289,7 +292,7 @@ def find_index_in_array(array, c):
 def compute_llh(dist_L, relatedness, plotviolin=True):
 	#results=1.0/(size_dist_L-1) * np.sum((dist_L - np.mean(dist_L))/np.std(dist_L)*(relatedness - relatedness_mean)/relatedness_std)
 	list_corr1=np.sort(spearmanMantelTest(dist_L,permutated_relatedness))
-	corr1=spearmanMantelTest(dist_L,relatedness)
+	corr1=spearmanMantelTest(dist_L, relatedness)
 	#print list
 	#print corr1
 	#plot([0]*50+[0.1]*50,list_corr.tolist()+[corr]+list_corr1.tolist()+[corr1],'.')
@@ -298,7 +301,7 @@ def compute_llh(dist_L, relatedness, plotviolin=True):
 	#plt.show()
 	#print (50-find_index_in_array(list_corr,corr[0]))/50
 	print "some sizes", corr1, list_corr1
-	return (corr1 - np.mean(list_corr1))[0]
+	return (corr1 - np.mean(list_corr1))
 
 count=0
 
