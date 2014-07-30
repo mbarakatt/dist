@@ -20,33 +20,35 @@ import time
 from subprocess import call
 print(" Done")
 
-
-OUTPUT_FOLDER=os.path.join("../results" , time.strftime("%Y.%m.%d.%Hh%mm"))
-call(['mkdir','-p',OUTPUT_FOLDER])
-
+#---CONSTANT DEFINITION-------
 DISTANCE_MASK=20000 #Km
-
+OUTPUT_FOLDER=os.path.join("../results" , time.strftime("%Y.%m.%d.%Hh%mm"))
 EARTH_RADIUS=6371
 NEGLIGEABLE_RADIAN=0.005
 jaccard_file_path="../data/language/Ruhlen2014jaccard.txt"
-parse_jaccard(open(jaccard_file_path,'r'))
+longlatfile = "../data/language/longitudelatitude_americasnegative.txt"
+#---END CONSTANT DEFINITION---
 
+#---PARSE RELATEDNESS-------
+call(['mkdir','-p',OUTPUT_FOLDER])
+parse_jaccard(open(jaccard_file_path,'r'))
 relatedness = np.array(parse_jaccard(open(jaccard_file_path,'r')))
 #relatedness=np.array([[0.,0.5,0.2],[0.5,0.,0.1],[0.2,0.1,0.]])
+#---END PARSE RELATEDNESS---
 
-longlatfile = "../data/language/longitudelatitude_americasnegative.txt"
+#---PARSING LONG LAT FILE-------
 f_longlatfile = open(longlatfile, 'r')
 lines_longlatfile = f_longlatfile.read().split('\n')
 #pos = [np.array([0.,10.,10.]),np.array([0.,10.,20.])]
 pos=map(lambda x : np.array(map(float,x)), zip(*[ line.split('\t') for line in lines_longlatfile ]))
-
 lons = pos[0]#(360+pos[0])*(pos[0]<=0) + pos[0]*(pos[0]>0)
 lats = pos[1]#(90-pos[1])*(pos[1]>0) + ( -pos[1] + 90 ) * ( pos[1] <= 0 )
 #print "lons:",np.round(lons,1), "lats:", np.round(lats,1)
 lats, lons = map(lambda x: x*2*np.pi/360,[lats,lons]) #correct that
+#---END PARSING LONG LAT FILE---
 
-
-def get_spherical_coor(points):#return points in lons, lats
+#Destription get_spherical_coor: Return points in lons, lats
+def get_spherical_coor(points):
 	xs, ys, zs = map(np.array,zip(*points))
 	lons=np.mod(np.arctan(ys/xs) + (xs<0)*np.pi, 2*np.pi )
 	lats=np.arccos(zs/np.sqrt(xs*xs+ys*ys+zs*zs))
@@ -55,10 +57,7 @@ def get_spherical_coor(points):#return points in lons, lats
 
 def get_euclidean_coor(lons,lats):
 	adjusted_lats = np.copy(lats)
-	#return EARTH_RADIUS * np.cos(lons) * np.sin(adjusted_lats), EARTH_RADIUS*np.sin(lons)*np.sin(adjusted_lats), EARTH_RADIUS*np.cos(adjusted_lats)
 	return EARTH_RADIUS * np.cos(lons) * np.cos(adjusted_lats), EARTH_RADIUS*np.sin(lons)*np.cos(adjusted_lats), EARTH_RADIUS*np.sin(adjusted_lats)
-
-
 
 #list of points
 searchspace_euclidean=np.array(map(lambda x : x.split(" "), open("searchspace3.txt",'r').read().split("\n"))[:-1])#*EARTH_RADIUS
@@ -89,17 +88,6 @@ def get_dist_to_pt(lon,lat,lons,lats):
 def get_dist_2pt(p1,p2):
 	#print 'p1',p1,'p2',p2
 	return get_dist(*map(np.array,zip(*[p1,p2])))[0,1]
-
-"""
-torad=lambda x : x*2*np.pi/360.0
-p1=map(torad,[142  ,  31.8 ])
-p2=map(torad,[18.45, -16.29])
-print "THIS" , get_dist_2pt(p1,p2)
-print "ANDTHIS",get_dist_to_pt(p1[0], p1[1], np.array([p1[0],p2[0]]), np.array([p1[1],p2[1]]))
-exit(1)
-"""
-
-
 
 
 #The arc is from A to B and C is the point. Here A, B are point on sphere(or vector starting at origin of sphere) in euclidean 3D space. C is a vector of the same nature
@@ -204,7 +192,13 @@ def compute_distances(mylines):
 	#print "min_dist_L", dist_L
 	return dist_L
 
-spear= lambda xs,ys: 1- (6* np.sum(np.power(np.argsort(xs)-np.argsort(ys),2)))/(np.power(len(xs),3)-float(len(xs)))
+def spear (xs,ys):
+	return [scipy.stats.spearmanr(xs,y)[0] for y in ys]
+	xs_argsort=np.argsort(xs)
+	ys_argsort=map(lambda y : np.argsort(y),ys)
+	return  1 - (6* np.sum(np.power(xs_argsort-ys_argsort, 2), axis=1))/(np.power(len(xs),3)-float(len(xs)))
+
+
 maxdist = DISTANCE_MASK #np.max(b)
 bins = np.linspace(0, maxdist, NB_BINS+1) #create NB_BINS bins
 dc = (bins + (bins[1]-bins[0])/2.0)[0:-1]
@@ -239,15 +233,22 @@ relatedness_std=np.std(relatedness)
 np.random.seed(seed=int(time.time()))
 
 print "Creating permutations...",
-permutated_relatedness= np.array([ np.random.permutation(np.random.permutation(relatedness).T).T for _ in range(49)])
+permutated_relatedness= np.array([ np.random.permutation(np.random.permutation(relatedness).T).T for _ in range(4)])
 #permutated_relatedness_mean=mean_MASK(permutated_relatedness)
 #permutated_relatedness_std=std_MASK(permutated_relatedness)
 print "Done"
 
 def spearman_corr(M1,M2):
-	M1_flatten=M1.flatten(M1)
-	M2_flatten=M2.flatten(M2)
+	M1_flatten=M1.flatten()
+	if len(M2.shape) < 3:
+		M2=np.array([M2])
+	M2_flatten=np.array(map(lambda x : x.flatten(), M2))
+	print "M2_flatten",M2_flatten.shape
 	return spear(M1_flatten,M2_flatten)
+
+list_corr=np.sort(spearman_corr(dist_indiv,permutated_relatedness))
+corr=spearman_corr(dist_indiv,np.array([relatedness]))
+
 #M1 is a single matrix, M2 can be an array of matrix
 def mantel_test(M1,M2):
 	t1=time.time()
@@ -266,8 +267,7 @@ def mantel_test(M1,M2):
 	print "Mantel test time:", time.time() - t1
 	return -results
 	
-list_corr=np.sort(spearman_corr(dist_indiv,permutated_relatedness))
-corr=spearman_corr(dist_indiv,np.array([relatedness]))
+
 
 def find_index_in_array(array, c):
 	for i in range(np.size(array)):
@@ -275,10 +275,7 @@ def find_index_in_array(array, c):
 			return i
 	return len(array)
 
-print (50-find_index_in_array(list_corr,corr[0]))/50
-
-print list_corr
-print corr
+#print (50-find_index_in_array(list_corr,corr[0]))/50
 
 def compute_llh(dist_L, relatedness, plotviolin=True):
 	#results=1.0/(size_dist_L-1) * np.sum((dist_L - np.mean(dist_L))/np.std(dist_L)*(relatedness - relatedness_mean)/relatedness_std)
@@ -291,38 +288,9 @@ def compute_llh(dist_L, relatedness, plotviolin=True):
 	#title(str(corr-np.mean(list_corr))+ ',' + str( corr1 - np.mean(list_corr1) ) )
 	#plt.show()
 	#print (50-find_index_in_array(list_corr,corr[0]))/50
+	print "some sizes", corr1, list_corr1
 	return (corr1 - np.mean(list_corr1))[0]
 
-
-"""
-	#t0=time.time()
-	a = np.ndarray.flatten(relatedness)
-	b = np.ndarray.flatten(dist_L)
-	#t1=time.time()
-	#print "flattening time: ", t1 -t0
-	c=[]
-	
-	for i in range(len(bins)-1):
-		c.append(a[(b > bins[i]) * (b<=bins[i+1])])
-		
-	#map(lambda (x,y): c[int(y/maxdist*NB_BINS)].append(x), zip(a,b))
-	#t2=time.time()
-	#print "get relatedness in bin time:", t2-t1
-	if plotviolin:
-		fig = plt.figure()
-		ax = fig.add_subplot(111)
-		violinplot(c, ax=ax)
-		plt.show()
-		
-		plot(dc, np.array(map(np.sum,c))/np.array(map(len,c)))
-		plt.show()
-
-	temp=map(llh_bin, c)
-	#print "bin_llh",temp
-	sum_llh= -np.sum(temp)
-
-	return sum_llh
-"""
 count=0
 
 def wrapper_compute_llh(params):
@@ -353,9 +321,7 @@ for i in [0]:
 	
 	
 	for these_params in test_params:
-		print these_params
 		llh=compute_llh(compute_distances(fittedlines + [line(*map(lambda x : x*2*np.pi/360,these_params))]), relatedness,plotviolin=False)
-		print llh
 	value=[]
 	value_param=[]
 	for search_point1 in searchspace_degree:
@@ -369,59 +335,14 @@ for i in [0]:
 	min_value=[value[i] for i in argtosort]
 	min_value_param=[value_param[i] for i in argtosort]
 
-	fout=open(os.path.join(OUTPUT_FOLDER, "train_geo_out") +time.strftime("%Hh%Mm")+".txt",'w')
+	fout=open(os.path.join(OUTPUT_FOLDER, "train_geo_out") + ".txt",'w')
 	for item in zip(min_value,min_value_param):
 		fout.write(str(item[0])+ ',' + str(item[1].tolist()) + '\n')
 
 	fout.close()
 
-
-#This line will is for the reproducible program.
 	print "DONE"
-	print OUTPUT_FOLDER
-
-	"""
-	#res, fval, grid, Jout=scipy.optimize.brute(wrapper_compute_llh, [(mybox[0],mybox[2]),(mybox[1],mybox[3]),(mybox[0],mybox[2]),(mybox[1],mybox[3])], Ns=i , full_output=True, finish=None)
-	print "result", res
-	print "fval", fval
-	bestline=line(res[0],res[1],res[2],res[3])
-	fittedlines.append(bestline)
-	for cline in fittedlines:
-		plot([cline.p1[0],cline.p2[0]],[cline.p1[1],cline.p2[1]], 'o')
-		plot([cline.p1[0],cline.p2[0]], [cline.p1[1],cline.p2[1]])
-		#plot(pos[0], pos[1],".")
-		
-	sys.exit(1)
-
-
-	title("Fitted line:" + str(compute_corr(compute_distances(pos, dist_bet_indiv, fittedlines ,np.zeros([len(fittedlines)+1,len(fittedlines)+ 1])),IBD)) + ", " +"Real line:" + str(compute_corr(compute_distances(pos, dist_bet_indiv, mylines ,np.zeros([len(fittedlines)+1,len(fittedlines)+ 1])),IBD))+ "Params:" +str(best_sigmoid_params))
-	savefig("pic/test" + str(args[1]) + ".jpg")
-
-	fig=figure()
-	ax = fig.add_subplot(1,1,1)
-	drawrefsigm(ax)
-	drawsigm(compute_distances(pos, dist_bet_indiv, fittedlines, np.zeros([len(fittedlines)+1,len(fittedlines)+ 1])),IBD,"Fitted",ax)
-	drawsigm(compute_distances(pos, dist_bet_indiv, mylines, np.zeros([len(fittedlines)+1,len(fittedlines)+ 1])),IBD,"Real",ax)
-	handles, labels = ax.get_legend_handles_labels()
-	ax.legend(handles[::-1], labels[::-1]) #reverse the order
-	title("Fitted line:" + str(compute_corr(compute_distances(pos, dist_bet_indiv, fittedlines ,np.zeros([len(fittedlines)+1,len(fittedlines)+ 1])),IBD)) + ", " +"Real line:" + str(compute_corr(compute_distances(pos, dist_bet_indiv, mylines ,np.zeros([len(fittedlines)+1,len(fittedlines)+ 1])),IBD))+"Params:"+str(best_sigmoid_params))
-	savefig("pic/" + "test" + str(args[1]) + "prob"  + ".jpg")
-
-
-	fig = plt.figure()
-	ax = fig.add_subplot(111, projection='3d')
-	for x in np.linspace(mybox[0], mybox[2],num=40):
-		for y in np.linspace(mybox[1],mybox[3],num=40):
-			ax.scatter(x,y,wrapper_compute_corr([mylines[0].p1[0], mylines[0].p1[1], x, y]))
-	ax.set_xlabel('X Label')
-	ax.set_ylabel('Y Label')
-	ax.set_zlabel('Z Label')
-	for ii in xrange(0,360,30):
-		ax.view_init(elev=30., azim=ii)
-		plt.savefig("landscape" + str(ii) + ".png")
-	"""
-
-#sys.exit(1)
+	print OUTPUT_FOLDER #This line will is for the reproducible script.
 
 
 
