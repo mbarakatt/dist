@@ -1,5 +1,5 @@
 
-plass spearmanFlat:
+class spearmanFlat:
 	def __init__(self,distIndiv,distJaccard):
 		self.distIndiv=distIndiv
 		self.distJaccard=distJaccard

@@ -18,6 +18,7 @@ from jaccard_plot import *
 from statsmodels.graphics.boxplots import violinplot
 import time
 from subprocess import call
+import spearmanFlat, mantelTest
 print(" Done")
 
 #---CONSTANT DEFINITION-------
