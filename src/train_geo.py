@@ -175,21 +175,14 @@ def llh_case(dc,IBDc, nb_pairs_c, sigmoid_params):
 	return np.where(nb_pairs_c>0,-nb_pairs_c*s_dc + IBDc*np.log(s_dc*nb_pairs_c) - scipy.special.gammaln(IBDc+1),0)
 """
 
-def computeDistances(mylines):
-	#print 'myline',mylines[0].p1, mylines[0].p2
-	t,v = map(lambda x: list(get_euclidean_coor(x[0],x[1])), [mylines[0].p1, mylines[0].p2])
-	#print "tv", t,v
-	#print "dist_indiv", dist_indiv
+def computeDistances(myline,distIndiv,distJaccard):
+	t,v = map(lambda x: list(get_euclidean_coor(x[0],x[1])), [myline.p1, myline.p2])
 	a=get_dist_point_arc(t,v,zip(*pos_euclidean))
-	#print "pt_arc_dist",a
-	#print "arc_time:", time.time() - t0
 	b=np.array( a for i in range(len(dist_indiv)))
 	trans= a.transpose()
 	added= a + trans
-	#dist_L = np.minimum(trans, dist_indiv)
 	dist_L = np.minimum(dist_indiv , added)
 	np.fill_diagonal(dist_L,0)
-	#print "min_dist_L", dist_L
 	return dist_L
 
 #Performs a weird mantel test on the rank matrices of M1 and M2 (where the rank is taken by row)
@@ -204,12 +197,6 @@ def spearmanMantelTest(M1,M2):
 	else:
 		return value
 
-def spear(xs,ys):
-	return [scipy.stats.spearmanr(xs,y)[0] for y in ys]
-	xs_argsort=np.argsort(xs)
-	ys_argsort=map(lambda y : np.argsort(y),ys)
-	return  1 - (6* np.sum(np.power(xs_argsort-ys_argsort, 2), axis=1))/(np.power(len(xs),3)-float(len(xs)))
-
 
 maxdist = DISTANCE_MASK #np.max(b)
 bins = np.linspace(0, maxdist, NB_BINS+1) #create NB_BINS bins
@@ -218,8 +205,6 @@ best_min = "nan"
 best_sigmoid_params = []
 
 
-def get_MASK(M):
-	return (M<=DISTANCE_MASK)
 
 def mean_std_MASK(M,mask,item_in_mask):
 	if len(M.shape) < 3:
@@ -245,40 +230,16 @@ relatedness_std=np.std(relatedness)
 np.random.seed(seed=int(time.time()))
 
 print "Creating permutations...",
-permutated_relatedness= np.array([ np.random.permutation(np.random.permutation(relatedness).T).T for _ in range(4)])
 #permutated_relatedness_mean=mean_MASK(permutated_relatedness)
 #permutated_relatedness_std=std_MASK(permutated_relatedness)
 print "Done"
 
-def spearman_corr(M1,M2):
-	M1_flatten=M1.flatten()
-	if len(M2.shape) < 3:
-		M2=np.array([M2])
-	M2_flatten=np.array(map(lambda x : x.flatten(), M2))
-	#print "M2_flatten",M2_flatten.shape
-	return spear(M1_flatten,M2_flatten)
 
+
+	
 list_corr=np.sort(spearmanMantelTest(dist_indiv,permutated_relatedness))
 corr=spearmanMantelTest(dist_indiv,np.array([relatedness]))
 
-#M1 is a single matrix, M2 can be an array of matrix
-def mantel_test(M1,M2):
-	t1=time.time()
-
-	
-	if len(M2.shape) < 3:
-		M2=np.array([M2])
-	mask=get_MASK(M1)
-	item_in_mask=np.sum(mask)
-	M1_mean_mask, M1_std_mask= mean_std_MASK(M1,mask,item_in_mask)
-	M2_mean_mask, M2_std_mask= mean_std_MASK(M2,mask,item_in_mask)
-	#print "M1 and M2"
-	#print M1_mean_mask, M1_std_mask
-	#print M2_mean_mask, M2_std_mask
-	results=1.0/(item_in_mask - 1) * np.sum(((M1 - M1_mean_mask)*mask)/M1_std_mask*((M2 - M2_mean_mask.reshape((M2.shape[0],1,1)))*mask)/M2_std_mask.reshape((M2.shape[0],1,1)) ,axis=(1,2))
-	print "Mantel test time:", time.time() - t1
-	return -results
-	
 
 
 def find_index_in_array(array, c):
@@ -286,8 +247,6 @@ def find_index_in_array(array, c):
 		if c <= array[i]:
 			return i
 	return len(array)
-
-#print (50-find_index_in_array(list_corr,corr[0]))/50
 
 def compute_llh(dist_L, relatedness, plotviolin=True):
 	#results=1.0/(size_dist_L-1) * np.sum((dist_L - np.mean(dist_L))/np.std(dist_L)*(relatedness - relatedness_mean)/relatedness_std)
@@ -303,58 +262,56 @@ def compute_llh(dist_L, relatedness, plotviolin=True):
 	print "some sizes", corr1, list_corr1
 	return (corr1 - np.mean(list_corr1))
 
-count=0
-
-def wrapper_compute_llh(params):
+testList=[mantelTest,mantelTestspearman]
+def computeScores(lon1,lat1,lon2,lat2,fout):
 	t0=time.time()
-	if params[0] > params[2] or params[1] > params[3]:
-		return np.inf
-		
-	print "Computing llh for", params
-	params=map(lambda x: x*2*np.pi/360.0, params)
-	length= get_dist_2pt( [params[0], params[1]],[ params[2] , params[3]])
-	print "LENGTH:", length
-	if  length < 300 or length > 6000:
-		return np.inf
-	a=compute_llh(computeDistances(fittedlines + [line(params[0], params[1], params[2], params[3])]), relatedness)
-	print "llh: ", a
-	#print "full_iter_time", time.time() - t0
-	return a
+	fout.write("Parameters:%f,%f,%f,%f\n", lon1,lat1,lon2,lat2)
+	lon1,lat1,lon2,lat2 = [x*2*np.pi/360.0 for x in [lon1,lat1,lon2,lat2]]
+	length= get_dist_2pt([lon1,lat1] , [lon2,lat2])
+	fout.write("Length of the line: ", length)
+	myTrain=line(lon1,lat1,lon2,lat2)
+	testResults=[test(myTrain) for test in testList]
+	for testResultIndex in range(len(testResults):
+		fout("Test "+testList[testResultIndex].split(' ')[1] + ": " + str(testResults[testResultIndex]))
+	print "Time for a whole iteration: " , time.time()-t0
+	return testResults
 
-dist_Lines = [[0]] #distance_between_lines(mylines)
+testParams=[(115.3,-27.37,139.2,-26.11) #Australia
+			,(118.13,13.92,178.24,-17.64) #Oceania
+			,(-74.88,-1.75,-4.57,40.7)#spain - america
+			,(21.4453,10.83,109.68,0.0)#africa-oceania
+			]
 
-fittedlines=[]
-for i in [0]:
-	test_params=[(115.3,-27.37,139.2,-26.11) #Australia
-				,(118.13,13.92,178.24,-17.64) #Oceania
-				,(-74.88,-1.75,-4.57,40.7)#spain - america
-				,(21.4453,10.83,109.68,0.0)#africa-oceania
-				]
+
+fout = open(os.path.join(OUTPUT_FOLDER, "train_geo_out") + ".txt",'w')
+
+for testParam in testParams:
+	computeScores(*testParam)
+
+fout.close()
+print "DONE"
+print OUTPUT_FOLDER #This line will is for the reproducible script.
+
+"""
+value=[]
+value_param=[]
+for search_point1 in searchspace_degree:
+	for search_point2 in searchspace_degree:
+		temp=wrapper_compute_llh(np.append(search_point1, search_point2))
+		value.append(temp)
+		value_param.append(np.append(search_point1, search_point2))
 	
-	
-	for these_params in test_params:
-		llh=compute_llh(computeDistances(fittedlines + [line(*map(lambda x : x*2*np.pi/360,these_params))]), relatedness,plotviolin=False)
-	value=[]
-	value_param=[]
-	for search_point1 in searchspace_degree:
-		for search_point2 in searchspace_degree:
-			temp=wrapper_compute_llh(np.append(search_point1, search_point2))
-			value.append(temp)
-			value_param.append(np.append(search_point1, search_point2))
-		
-	print "Count",count
-	argtosort=np.argsort(value)
-	min_value=[value[i] for i in argtosort]
-	min_value_param=[value_param[i] for i in argtosort]
+print "Count",count
+argtosort=np.argsort(value)
+min_value=[value[i] for i in argtosort]
+min_value_param=[value_param[i] for i in argtosort]
 
-	fout=open(os.path.join(OUTPUT_FOLDER, "train_geo_out") + ".txt",'w')
-	for item in zip(min_value,min_value_param):
-		fout.write(str(item[0])+ ',' + str(item[1].tolist()) + '\n')
+fout=open(os.path.join(OUTPUT_FOLDER, "train_geo_out") + ".txt",'w')
+for item in zip(min_value,min_value_param):
+	fout.write(str(item[0])+ ',' + str(item[1].tolist()) + '\n')
 
-	fout.close()
-
-	print "DONE"
-	print OUTPUT_FOLDER #This line will is for the reproducible script.
+fout.close()
+"""
 
 
 
