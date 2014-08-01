@@ -12,13 +12,18 @@ from  pylab import *
 import random,math,scipy,sys,os
 import numpy as np
 np.set_printoptions(threshold=np.nan)
+np.seterr(divide='ignore')
 from itertools import product
 from mpl_toolkits.basemap import Basemap, shiftgrid
 from jaccard_plot import *
 from statsmodels.graphics.boxplots import violinplot
 import time
 from subprocess import call
-import spearmanFlat, mantelTest
+#---IMPORTING TESTS-------
+from spearmanFlat import spearmanFlat
+from mantelTest import mantelTest
+from spearmanMantelTest import spearmanMantelTest
+#---END IMPORTING TESTS---
 print(" Done")
 
 #---CONSTANT DEFINITION-------
@@ -33,8 +38,8 @@ longlatfile = "../data/language/longitudelatitude_americasnegative.txt"
 #---PARSE RELATEDNESS-------
 call(['mkdir','-p',OUTPUT_FOLDER])
 parse_jaccard(open(jaccard_file_path,'r'))
-relatedness = np.array(parse_jaccard(open(jaccard_file_path,'r')))
-#relatedness=np.array([[0.,0.5,0.2],[0.5,0.,0.1],[0.2,0.1,0.]])
+distJaccard = np.array(parse_jaccard(open(jaccard_file_path,'r')))
+#distJaccard=np.array([[0.,0.5,0.2],[0.5,0.,0.1],[0.2,0.1,0.]])
 #---END PARSE RELATEDNESS---
 
 #---PARSING LONG LAT FILE-------
@@ -72,7 +77,7 @@ searchspace_degree=searchspace_radians * 360.0/(2*np.pi)
 #print "radians",np.round(searchspace_radians,decimals=3)
 #print "degree", np.round(searchspace_degree,decimals=3)
 
-#plot_map_relatedness(map(list,list(relatedness)), parse_locations(open("../data/language/latitudelongitude_americasnegative.txt",'r'), flip=True))
+#plot_map_distJaccard(map(list,list(distJaccard)), parse_locations(open("../data/language/latitudelongitude_americasnegative.txt",'r'), flip=True))
 #savefig("test.jpg")
 def get_dist(lons,lats): # great circle distance.
 	matrix_lats, matrix_lons = map(lambda v : np.array([v for i in range(len(v))]) , [lats,lons])
@@ -118,12 +123,12 @@ def get_dist_point_arc(A,B,C):
 	return temp
 
 
-dist_indiv    = get_dist(lons,lats)
+distIndiv    = get_dist(lons,lats)
 pos_euclidean = np.array(get_euclidean_coor(lons,lats))
 #xs,ys,zs = pos_euclidean
 
 NB_BINS=10
-#print dist_indiv
+#print distIndiv
 #dist_points_arc=get_dist_point_arc(map(lambda x: x[2], [xs,ys,zs]),map(lambda x: x[0], [xs,ys,zs]), map(lambda x: x[1], [xs,ys,zs]))
 #print dist_points_arc
 
@@ -139,11 +144,6 @@ class line:
 	def __init__(self,lon1,lat1,lon2,lat2):
 		self.p1=[lon1,lat1]
 		self.p2=[lon2,lat2]
-		#print lon1,lat1
-		#toradians= lambda x : 2*np.pi/360
-		#self.p1=[toradians(lon1),toradians(lat1)]
-		#self.p2=[toradians(lon2),toradians(lat2)]
-		#self.p1, self.p2=map(lambda x : map(lambda y : y*2*np.pi/360.0,x) ,[[float(lon1),float(lat1)],[float(lon2),float(lat2)]])
 
 mylines=[]
 def myrandomrange(a,b):
@@ -173,30 +173,19 @@ def llh_case(dc,IBDc, nb_pairs_c, sigmoid_params):
 	s_dc = np.array(s_dc)
 	#return -nb_pairs_c*s_dc + IBDc*np.log(s_dc*nb_pairs_c) - logfact[IBDc])
 	print "test", (nb_pairs_c>0)
-	return np.where(nb_pairs_c>0,-nb_pairs_c*s_dc + IBDc*np.log(s_dc*nb_pairs_c) - scipy.special.gammaln(IBDc+1),0)
-"""
+	return np.where(nb_pairs_c>0,-nb_pairs_c*s_dc + IBDc*np.log(s_dc*nb_pairs_c) - scipy.special.gammaln(IBDc+1),0)"""
+
 
 def computeDistances(myline,distIndiv,distJaccard):
 	t,v = map(lambda x: list(get_euclidean_coor(x[0],x[1])), [myline.p1, myline.p2])
 	a=get_dist_point_arc(t,v,zip(*pos_euclidean))
-	b=np.array( a for i in range(len(dist_indiv)))
+	b=np.array( a for i in range(len(distIndiv)))
 	trans= a.transpose()
 	added= a + trans
-	dist_L = np.minimum(dist_indiv , added)
+	dist_L = np.minimum(distIndiv , added)
 	np.fill_diagonal(dist_L,0)
 	return dist_L
 
-#Performs a weird mantel test on the rank matrices of M1 and M2 (where the rank is taken by row)
-#Note that the result is NOT normalized
-def spearmanMantelTest(M1,M2):
-	t1=time.time()
-	if len(M2.shape)<3:
-		M2=np.array([M2])
-	value = 1-6*np.sum(np.power(np.argsort(M1)-np.argsort(M2),2),axis=(1,2))/float(np.power(len(M1),3)-(len(M1)))	
-	if len(value)==1:
-		return value[0]
-	else:
-		return value
 
 
 maxdist = DISTANCE_MASK #np.max(b)
@@ -204,17 +193,6 @@ bins = np.linspace(0, maxdist, NB_BINS+1) #create NB_BINS bins
 dc = (bins + (bins[1]-bins[0])/2.0)[0:-1]
 best_min = "nan"
 best_sigmoid_params = []
-
-
-
-def mean_std_MASK(M,mask,item_in_mask):
-	if len(M.shape) < 3:
-		M=np.array([M])
-	#print "MSHAPE:", (M*mask).shape
-	M_mask=M*mask
-	mean=np.sum(M_mask,axis=(1,2))/np.sum(mask)
-	#print "MEAN:", mean
-	return mean, np.sqrt(np.sum(np.power(((mean/np.sum(mask)).reshape((M_mask.shape[0],1,1)) - M_mask),2),axis=(1,2))/np.sum(mask))
 
 
 def llh_bin(dist):
@@ -225,22 +203,13 @@ def llh_bin(dist):
 	return np.sum(log_prob_per_bin*count_per_bin)
 
 
-size_dist_L=np.size(relatedness)
-relatedness_mean=np.mean(relatedness)
-relatedness_std=np.std(relatedness)
-np.random.seed(seed=int(time.time()))
-
-print "Creating permutations...",
-#permutated_relatedness_mean=mean_MASK(permutated_relatedness)
-#permutated_relatedness_std=std_MASK(permutated_relatedness)
-print "Done"
-
-
-
+size_dist_L=np.size(distJaccard)
+distJaccard_mean=np.mean(distJaccard)
+distJaccard_std=np.std(distJaccard)
+np.random.seed(seed=int(time.time()))#random enough for this purpuse.
 	
-list_corr=np.sort(spearmanMantelTest(dist_indiv,permutated_relatedness))
-corr=spearmanMantelTest(dist_indiv,np.array([relatedness]))
-
+#list_corr=np.sort(spearmanMantelTest(distIndiv,permutated_distJaccard))
+#corr=spearmanMantelTest(distIndiv,np.array([distJaccard]))
 
 
 def find_index_in_array(array, c):
@@ -249,45 +218,40 @@ def find_index_in_array(array, c):
 			return i
 	return len(array)
 
-def compute_llh(dist_L, relatedness, plotviolin=True):
-	#results=1.0/(size_dist_L-1) * np.sum((dist_L - np.mean(dist_L))/np.std(dist_L)*(relatedness - relatedness_mean)/relatedness_std)
-	list_corr1=np.sort(spearmanMantelTest(dist_L,permutated_relatedness))
-	corr1=spearmanMantelTest(dist_L, relatedness)
-	#print list
-	#print corr1
-	#plot([0]*50+[0.1]*50,list_corr.tolist()+[corr]+list_corr1.tolist()+[corr1],'.')
-	#xlim(-0.05,0.15)
-	#title(str(corr-np.mean(list_corr))+ ',' + str( corr1 - np.mean(list_corr1) ) )
-	#plt.show()
-	#print (50-find_index_in_array(list_corr,corr[0]))/50
-	print "some sizes", corr1, list_corr1
-	return (corr1 - np.mean(list_corr1))
-
-testList=[mantelTest,mantelTestspearman]
-def computeScores(lon1,lat1,lon2,lat2,fout):
+testList=[mantelTest,spearmanMantelTest,spearmanFlat]
+testClassList=[thistest(distIndiv,distJaccard) for thistest in testList]
+def computeScores(fout,lon1,lat1,lon2,lat2):
 	t0=time.time()
-	fout.write("Parameters:%f,%f,%f,%f\n", lon1,lat1,lon2,lat2)
+	fout.write("Parameters:%f,%f,%f,%f\n" % (lon1,lat1,lon2,lat2))
 	lon1,lat1,lon2,lat2 = [x*2*np.pi/360.0 for x in [lon1,lat1,lon2,lat2]]
 	length= get_dist_2pt([lon1,lat1] , [lon2,lat2])
-	fout.write("Length of the line: ", length)
-	myTrain=line(lon1,lat1,lon2,lat2)
-	testResults=[test(myTrain) for test in testList]
-	for testResultIndex in range(len(testResults):
-		fout("Test "+testList[testResultIndex].split(' ')[1] + ": " + str(testResults[testResultIndex]))
+	fout.write("Length of the line: " + str(length)+ '\n')
+	myLine=line(lon1,lat1,lon2,lat2)
+	bestDistances=computeDistances(myLine,distIndiv,distJaccard)
+	testResults=[]
+	for testClass in testClassList:
+		print "Begin: " , str(testClass).split(' ')[0].split('.')[1] , "..." ,  
+		testResults.append(testClass(myLine,bestDistances))
+		print "Done"
+	for testResultIndex in range(len(testResults)):
+		fout.write("Test "+str(testClassList[testResultIndex]).split(' ')[0].split('.')[1] + ": " + str(testResults[testResultIndex]) + '\n')
 	print "Time for a whole iteration: " , time.time()-t0
 	return testResults
 
-testParams=[(115.3,-27.37,139.2,-26.11) #Australia
+testParams=[(115.3,-27.37,139.2,-26.11)]
+blahs=""" #Australia
 			,(118.13,13.92,178.24,-17.64) #Oceania
 			,(-74.88,-1.75,-4.57,40.7)#spain - america
 			,(21.4453,10.83,109.68,0.0)#africa-oceania
 			]
+"""
 
+#Initialize all the tests that we are going to do.
 
 fout = open(os.path.join(OUTPUT_FOLDER, "train_geo_out") + ".txt",'w')
 
 for testParam in testParams:
-	computeScores(*testParam)
+	computeScores(fout,*testParam)
 
 fout.close()
 print "DONE"
