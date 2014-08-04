@@ -33,5 +33,6 @@ class mantelTest:
 		item_in_mask=self.numberItemInMask
 		M1_mean_mask, M1_std_mask= self.meanStdMask(M1,mask,item_in_mask)
 		M2_mean_mask, M2_std_mask= self.meanStdMask(M2,mask,item_in_mask)
-		results=1.0/(item_in_mask - 1) * np.sum(((M1 - M1_mean_mask)*mask)/M1_std_mask*((M2 - M2_mean_mask.reshape((M2.shape[0],1,1)))*mask)/M2_std_mask.reshape((M2.shape[0],1,1)) ,axis=(1,2))
-		return -results[0]
+		#raise Exception(map(str,[M1_mean_mask,M1_std_mask,M2_mean_mask,M2_std_mask]))
+		results=1.0/(item_in_mask - 1) * np.sum(((M1 - np.mean(M1)))/np.std(M1)*((M2 - np.mean(M2,axis=(1,2)).reshape((M2.shape[0],1,1)))/np.std(M2,axis=(1,2)).reshape((M2.shape[0],1,1))) ,axis=(1,2))
+		return results[0]

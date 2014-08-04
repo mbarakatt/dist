@@ -218,6 +218,16 @@ def find_index_in_array(array, c):
 			return i
 	return len(array)
 
+def simplePlot(ax,xs,ys,Title,xLabel,yLabel,savepath,Label,save=True):
+	ax.plot(xs, ys,label=Label)
+	ax.set_xlabel(xLabel)
+	ax.set_ylabel(yLabel)
+	ax.set_title(Title)
+	if save:
+		handles, labels = ax.get_legend_handles_labels()
+		ax.legend(handles, labels)
+		plt.savefig(''.join([c for c in savepath if c not in ["'","[","]"]]) + '.jpg')
+
 testList=[mantelTest,spearmanMantelTest,spearmanFlat]
 testClassList=[thistest(distIndiv,distJaccard) for thistest in testList]
 def computeScores(fout,lon1,lat1,lon2,lat2):
@@ -229,6 +239,22 @@ def computeScores(fout,lon1,lat1,lon2,lat2):
 	myLine=line(lon1,lat1,lon2,lat2)
 	bestDistances=computeDistances(myLine,distIndiv,distJaccard)
 	testResults=[]
+	
+	fig = plt.figure()
+	ax=fig.add_subplot(111)
+	distIndivFlatten=distIndiv.flatten()
+	countPerBin = np.histogram(distIndivFlatten, bins)[0]
+	countPerBin[0]-=len(distIndiv)
+	countJaccardPerBin = np.histogram(distIndivFlatten, bins, weights=distJaccard.flatten())[0]
+	simplePlot(ax,dc,countJaccardPerBin/countPerBin, str(map(str,[lon1,lat1,lon2,lat2])),"Geodesic Distance(Km)", "JaccardDistance",os.path.join(OUTPUT_FOLDER,str(map(str,[lon1,lat1,lon2,lat2]))),"Without Train",save=False)
+
+	bestDistancesFlatten=bestDistances.flatten()
+	countPerBin = np.histogram(bestDistancesFlatten, bins)[0]
+	countPerBin[0]-=len(bestDistances)
+	countJaccardPerBin = np.histogram(bestDistancesFlatten, bins, weights=distJaccard.flatten())[0]
+	simplePlot(ax,dc, countJaccardPerBin/countPerBin, str(map(str,[lon1,lat1,lon2,lat2])),"Geodesic Distance(Km)", "JaccardDistance",os.path.join(OUTPUT_FOLDER,str(map(str,[lon1,lat1,lon2,lat2]))),"With Train")
+
+
 	for testClass in testClassList:
 		print "Begin: " , str(testClass).split(' ')[0].split('.')[1] , "..." ,  
 		testResults.append(testClass(myLine,bestDistances))
