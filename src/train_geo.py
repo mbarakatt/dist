@@ -27,7 +27,7 @@ from spearmanMantelTest import spearmanMantelTest
 print(" Done")
 
 #---CONSTANT DEFINITION-------
-DISTANCE_MASK=20000 #Km
+DISTANCE_MASK=13000 #Km
 OUTPUT_FOLDER=os.path.join("../results" , time.strftime("%Y.%m.%d.%Hh%mm"))
 EARTH_RADIUS=6371
 NEGLIGEABLE_RADIAN=0.005
@@ -163,17 +163,16 @@ sigmoid_params_search=[[1.0],[20],[0.2]]
 
 
 
-"""
-def llh_case(dc,IBDc, nb_pairs_c, sigmoid_params):
-	#if nb_pairs_c==0:
-	#	return 0
-	s_dc=[]
-	for dc_i in dc:
-		s_dc.append(sigmoidf(dc_i,sigmoid_params))
-	s_dc = np.array(s_dc)
-	#return -nb_pairs_c*s_dc + IBDc*np.log(s_dc*nb_pairs_c) - logfact[IBDc])
-	print "test", (nb_pairs_c>0)
-	return np.where(nb_pairs_c>0,-nb_pairs_c*s_dc + IBDc*np.log(s_dc*nb_pairs_c) - scipy.special.gammaln(IBDc+1),0)"""
+#def llh_case(dc,IBDc, nb_pairs_c, sigmoid_params):
+#	#if nb_pairs_c==0:
+#	#	return 0
+#	s_dc=[]
+#	for dc_i in dc:
+#		s_dc.append(sigmoidf(dc_i,sigmoid_params))
+#	s_dc = np.array(s_dc)
+#	#return -nb_pairs_c*s_dc + IBDc*np.log(s_dc*nb_pairs_c) - logfact[IBDc])
+#	print "test", (nb_pairs_c>0)
+#	return np.where(nb_pairs_c>0,-nb_pairs_c*s_dc + IBDc*np.log(s_dc*nb_pairs_c) - scipy.special.gammaln(IBDc+1),0)
 
 
 def computeDistances(myline,distIndiv,distJaccard):
@@ -218,28 +217,19 @@ def find_index_in_array(array, c):
 			return i
 	return len(array)
 
+numberPlotCounter=0
 def simplePlot(ax,xs,ys,Title,xLabel,yLabel,savepath,Label,save=True):
 	ax.plot(xs, ys,label=Label)
 	ax.set_xlabel(xLabel)
 	ax.set_ylabel(yLabel)
 	ax.set_title(Title)
+	ax.set_xlim(0,DISTANCE_MASK)
 	if save:
 		handles, labels = ax.get_legend_handles_labels()
 		ax.legend(handles, labels)
 		plt.savefig(''.join([c for c in savepath if c not in ["'","[","]"]]) + '.jpg')
 
-testList=[mantelTest,spearmanMantelTest,spearmanFlat]
-testClassList=[thistest(distIndiv,distJaccard) for thistest in testList]
-def computeScores(fout,lon1,lat1,lon2,lat2):
-	t0=time.time()
-	fout.write("Parameters:%f,%f,%f,%f\n" % (lon1,lat1,lon2,lat2))
-	lon1,lat1,lon2,lat2 = [x*2*np.pi/360.0 for x in [lon1,lat1,lon2,lat2]]
-	length= get_dist_2pt([lon1,lat1] , [lon2,lat2])
-	fout.write("Length of the line: " + str(length)+ '\n')
-	myLine=line(lon1,lat1,lon2,lat2)
-	bestDistances=computeDistances(myLine,distIndiv,distJaccard)
-	testResults=[]
-	
+def geoDistVsJaccardDist(lon1, lat1, lon2, lat2, bestDistances,score):
 	fig = plt.figure()
 	ax=fig.add_subplot(111)
 	distIndivFlatten=distIndiv.flatten()
@@ -251,9 +241,26 @@ def computeScores(fout,lon1,lat1,lon2,lat2):
 	bestDistancesFlatten=bestDistances.flatten()
 	countPerBin = np.histogram(bestDistancesFlatten, bins)[0]
 	countPerBin[0]-=len(bestDistances)
-	countJaccardPerBin = np.histogram(bestDistancesFlatten, bins, weights=distJaccard.flatten())[0]
-	simplePlot(ax,dc, countJaccardPerBin/countPerBin, str(map(str,[lon1,lat1,lon2,lat2])),"Geodesic Distance(Km)", "JaccardDistance",os.path.join(OUTPUT_FOLDER,str(map(str,[lon1,lat1,lon2,lat2]))),"With Train")
+	distJaccardFlatten=distJaccard.flatten()
+	countJaccardPerBin = np.histogram(bestDistancesFlatten, bins, weights=distJaccardFlatten)[0]
+	#ax.plot(bestDistancesFlatten,distJaccardFlatten,'.')
+	simplePlot(ax,dc, countJaccardPerBin/countPerBin, str(map(str,[lon1,lat1,lon2,lat2])),"Geodesic Distance(Km)", "JaccardDistance",os.path.join(OUTPUT_FOLDER, str(score)+"," + str(map(str,[lon1,lat1,lon2,lat2]))),"With Train")
+#	numberPlotCounter+=1
 
+
+testList=[spearmanMantelTest]
+#testList=[mantelTest,spearmanMantelTest,spearmanFlat]
+testClassList=[thistest(distIndiv,distJaccard) for thistest in testList]
+def computeScores(fout,lon1,lat1,lon2,lat2):
+	t0=time.time()
+	fout.write("Parameters:%f,%f,%f,%f\n" % (lon1,lat1,lon2,lat2))
+	lon1,lat1,lon2,lat2 = [x*2*np.pi/360.0 for x in [lon1,lat1,lon2,lat2]]
+	length= get_dist_2pt([lon1,lat1] , [lon2,lat2])
+	fout.write("Length of the line: " + str(length)+ '\n')
+	myLine=line(lon1,lat1,lon2,lat2)
+	bestDistances=computeDistances(myLine,distIndiv,distJaccard)
+	testResults=[]
+	
 
 	for testClass in testClassList:
 		print "Begin: " , str(testClass).split(' ')[0].split('.')[1] , "..." ,  
@@ -261,16 +268,15 @@ def computeScores(fout,lon1,lat1,lon2,lat2):
 		print "Done"
 	for testResultIndex in range(len(testResults)):
 		fout.write("Test "+str(testClassList[testResultIndex]).split(' ')[0].split('.')[1] + ": " + str(testResults[testResultIndex]) + '\n')
+	geoDistVsJaccardDist(lon1,lat1,lon2,lat2,bestDistances,testResults[0])
 	print "Time for a whole iteration: " , time.time()-t0
 	return testResults
 
-testParams=[(115.3,-27.37,139.2,-26.11)]
-blahs=""" #Australia
+testParams=[(115.3,-27.37,139.2,-26.11) #Australia
 			,(118.13,13.92,178.24,-17.64) #Oceania
 			,(-74.88,-1.75,-4.57,40.7)#spain - america
 			,(21.4453,10.83,109.68,0.0)#africa-oceania
 			]
-"""
 
 #Initialize all the tests that we are going to do.
 
@@ -279,19 +285,21 @@ fout = open(os.path.join(OUTPUT_FOLDER, "train_geo_out") + ".txt",'w')
 for testParam in testParams:
 	computeScores(fout,*testParam)
 
+
+value=[]
+value_param=[]
+for search_point1 in searchspace_degree[:10]:
+	for search_point2 in searchspace_degree[:10]:
+		computeScores(fout,*np.append(search_point1, search_point2))
+		#temp=wrapper_compute_llh(np.append(search_point1, search_point2))
+		#value.append(temp)
+		#value_param.append(np.append(search_point1, search_point2))
+	
 fout.close()
 print "DONE"
 print OUTPUT_FOLDER #This line will is for the reproducible script.
 
 """
-value=[]
-value_param=[]
-for search_point1 in searchspace_degree:
-	for search_point2 in searchspace_degree:
-		temp=wrapper_compute_llh(np.append(search_point1, search_point2))
-		value.append(temp)
-		value_param.append(np.append(search_point1, search_point2))
-	
 print "Count",count
 argtosort=np.argsort(value)
 min_value=[value[i] for i in argtosort]
