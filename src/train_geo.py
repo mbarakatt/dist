@@ -175,16 +175,20 @@ sigmoid_params_search=[[1.0],[20],[0.2]]
 #	return np.where(nb_pairs_c>0,-nb_pairs_c*s_dc + IBDc*np.log(s_dc*nb_pairs_c) - scipy.special.gammaln(IBDc+1),0)
 
 
-def computeDistances(myline,distIndiv,distJaccard):
+#The option fullOutput gives the binary matrix of only the pairs of points that are using the train (ie that are closer to each other when they take the train
+def computeDistances(myline,distIndiv,distJaccard,fullOutput=False):
 	t,v = map(lambda x: list(get_euclidean_coor(x[0],x[1])), [myline.p1, myline.p2])
 	a=get_dist_point_arc(t,v,zip(*pos_euclidean))
 	b=np.array( a for i in range(len(distIndiv)))
 	trans= a.transpose()
 	added= a + trans
+	tookTrainMask= (added < distIndiv)
 	dist_L = np.minimum(distIndiv , added)
 	np.fill_diagonal(dist_L,0)
-	return dist_L
-
+	if fullOutput:
+		return dist_L
+	else:
+		return dist_L, tookTrainMask
 
 
 maxdist = DISTANCE_MASK #np.max(b)
@@ -226,8 +230,9 @@ def simplePlot(ax,xs,ys,Title,xLabel,yLabel,savepath,Label,save=True):
 	ax.set_xlim(0,DISTANCE_MASK)
 	if save:
 		handles, labels = ax.get_legend_handles_labels()
-		ax.legend(handles, labels)
+		ax.legend(handles, labels,loc=4)
 		plt.savefig(''.join([c for c in savepath if c not in ["'","[","]"]]) + '.jpg')
+		plt.close()
 
 def geoDistVsJaccardDist(lon1, lat1, lon2, lat2, bestDistances,score):
 	fig = plt.figure()
@@ -248,7 +253,7 @@ def geoDistVsJaccardDist(lon1, lat1, lon2, lat2, bestDistances,score):
 #	numberPlotCounter+=1
 
 
-testList=[spearmanMantelTest]
+testList=[weirdTest]
 #testList=[mantelTest,spearmanMantelTest,spearmanFlat]
 testClassList=[thistest(distIndiv,distJaccard) for thistest in testList]
 def computeScores(fout,lon1,lat1,lon2,lat2):
@@ -258,7 +263,7 @@ def computeScores(fout,lon1,lat1,lon2,lat2):
 	length= get_dist_2pt([lon1,lat1] , [lon2,lat2])
 	fout.write("Length of the line: " + str(length)+ '\n')
 	myLine=line(lon1,lat1,lon2,lat2)
-	bestDistances=computeDistances(myLine,distIndiv,distJaccard)
+	bestDistances,tookTrainMask=computeDistances(myLine,distIndiv,distJaccard,fullOutput=True)
 	testResults=[]
 	
 
