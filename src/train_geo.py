@@ -2,7 +2,7 @@
 print("Starting train_geo.py")
 print "Importing modules...",
 import matplotlib
-#matplotlib.use('Agg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import scipy.optimize
@@ -23,11 +23,13 @@ from subprocess import call
 from spearmanFlat import spearmanFlat
 from mantelTest import mantelTest
 from spearmanMantelTest import spearmanMantelTest
+from weirdTest import weirdTest
 #---END IMPORTING TESTS---
 print(" Done")
 
 #---CONSTANT DEFINITION-------
-DISTANCE_MASK=13000 #Km
+DISTANCE_MASK=20000 #Km
+JACCARD_MASK=1.0 #below this number is included
 OUTPUT_FOLDER=os.path.join("../results" , time.strftime("%Y.%m.%d.%Hh%mm"))
 EARTH_RADIUS=6371
 NEGLIGEABLE_RADIAN=0.005
@@ -38,7 +40,11 @@ longlatfile = "../data/language/longitudelatitude_americasnegative.txt"
 #---PARSE RELATEDNESS-------
 call(['mkdir','-p',OUTPUT_FOLDER])
 parse_jaccard(open(jaccard_file_path,'r'))
-distJaccard = np.array(parse_jaccard(open(jaccard_file_path,'r')))
+tempDistJaccard = np.array(parse_jaccard(open(jaccard_file_path,'r')))
+maskJaccard = (tempDistJaccard<=JACCARD_MASK) 
+distJaccard = maskJaccard*tempDistJaccard
+applyMaskJaccard= lambda distM : (maskJaccard*distM)
+
 #distJaccard=np.array([[0.,0.5,0.2],[0.5,0.,0.1],[0.2,0.1,0.]])
 #---END PARSE RELATEDNESS---
 
@@ -123,7 +129,7 @@ def get_dist_point_arc(A,B,C):
 	return temp
 
 
-distIndiv    = get_dist(lons,lats)
+distIndiv =  get_dist(lons,lats)
 pos_euclidean = np.array(get_euclidean_coor(lons,lats))
 #xs,ys,zs = pos_euclidean
 
@@ -186,24 +192,24 @@ def computeDistances(myline,distIndiv,distJaccard,fullOutput=False):
 	dist_L = np.minimum(distIndiv , added)
 	np.fill_diagonal(dist_L,0)
 	if fullOutput:
-		return dist_L
-	else:
 		return dist_L, tookTrainMask
+	else:
+		return dist_L
 
 
 maxdist = DISTANCE_MASK #np.max(b)
-bins = np.linspace(0, maxdist, NB_BINS+1) #create NB_BINS bins
+bins = np.linspace(0.000001, maxdist, NB_BINS+1) #create NB_BINS bins
 dc = (bins + (bins[1]-bins[0])/2.0)[0:-1]
 best_min = "nan"
 best_sigmoid_params = []
 
 
-def llh_bin(dist):
-	bins = np.linspace(0, 1, 10+1)
-	count_per_bin = np.histogram(dist,bins)[0]/2.0
-	log_prob_per_bin = np.where((count_per_bin>0), np.log(count_per_bin/(len(dist)/2.0)), [0,0,0,0,0,0,0,0,0,0] )
-	#print "count_per_bin", count_per_bin, log_prob_per_bin
-	return np.sum(log_prob_per_bin*count_per_bin)
+#def llh_bin(dist):
+#	bins = np.linspace(0, 1, 10+1)
+#	count_per_bin = np.histogram(dist,bins)[0]/2.0
+#	log_prob_per_bin = np.where((count_per_bin>0), np.log(count_per_bin/(len(dist)/2.0)), [0,0,0,0,0,0,0,0,0,0] )
+#print "count_per_bin", count_per_bin, log_prob_per_bin
+#	return np.sum(log_prob_per_bin*count_per_bin)
 
 
 size_dist_L=np.size(distJaccard)
@@ -213,7 +219,6 @@ np.random.seed(seed=int(time.time()))#random enough for this purpuse.
 	
 #list_corr=np.sort(spearmanMantelTest(distIndiv,permutated_distJaccard))
 #corr=spearmanMantelTest(distIndiv,np.array([distJaccard]))
-
 
 def find_index_in_array(array, c):
 	for i in range(np.size(array)):
@@ -234,28 +239,31 @@ def simplePlot(ax,xs,ys,Title,xLabel,yLabel,savepath,Label,save=True):
 		plt.savefig(''.join([c for c in savepath if c not in ["'","[","]"]]) + '.jpg')
 		plt.close()
 
-def geoDistVsJaccardDist(lon1, lat1, lon2, lat2, bestDistances,score):
+def geoDistVsJaccardDist(lon1, lat1, lon2, lat2, bestDistances,score,tookTrainMask):
 	fig = plt.figure()
 	ax=fig.add_subplot(111)
-	distIndivFlatten=distIndiv.flatten()
+	applyMaskTookTrain= lambda M : M #*tookTrainMask
+	distIndivFlatten=(applyMaskTookTrain(applyMaskJaccard(distIndiv))).flatten()
 	countPerBin = np.histogram(distIndivFlatten, bins)[0]
-	countPerBin[0]-=len(distIndiv)
-	countJaccardPerBin = np.histogram(distIndivFlatten, bins, weights=distJaccard.flatten())[0]
-	simplePlot(ax,dc,countJaccardPerBin/countPerBin, str(map(str,[lon1,lat1,lon2,lat2])),"Geodesic Distance(Km)", "JaccardDistance",os.path.join(OUTPUT_FOLDER,str(map(str,[lon1,lat1,lon2,lat2]))),"Without Train",save=False)
+	distJaccardFlatten=(applyMaskTookTrain(distJaccard)).flatten()
+	countJaccardPerBin = np.histogram(distIndivFlatten, bins, weights=distJaccardFlatten)[0]
+	simplePlot(ax,dc,countJaccardPerBin/countPerBin, str(map(lambda x : str(x*360/(np.pi*2)),[lon1,lat1,lon2,lat2])),"Geodesic Distance(Km)", "JaccardDistance",os.path.join(OUTPUT_FOLDER,str(map(lambda x : str(x*360/(np.pi*2)),[lon1,lat1,lon2,lat2]))),"Without Train",save=False)
+	ax.plot(distIndivFlatten,distJaccardFlatten,'.')
+	#print "asdf'asdf" , countJaccardPerBin/countPerBin, countPerBin
 
-	bestDistancesFlatten=bestDistances.flatten()
+	bestDistancesFlatten=(applyMaskTookTrain(applyMaskJaccard(bestDistances))).flatten()
 	countPerBin = np.histogram(bestDistancesFlatten, bins)[0]
-	countPerBin[0]-=len(bestDistances)
-	distJaccardFlatten=distJaccard.flatten()
+	#countPerBin[0]-=len(bestDistances)
 	countJaccardPerBin = np.histogram(bestDistancesFlatten, bins, weights=distJaccardFlatten)[0]
-	#ax.plot(bestDistancesFlatten,distJaccardFlatten,'.')
-	simplePlot(ax,dc, countJaccardPerBin/countPerBin, str(map(str,[lon1,lat1,lon2,lat2])),"Geodesic Distance(Km)", "JaccardDistance",os.path.join(OUTPUT_FOLDER, str(score)+"," + str(map(str,[lon1,lat1,lon2,lat2]))),"With Train")
+	ax.plot(bestDistancesFlatten*(bestDistancesFlatten != distIndivFlatten),distJaccardFlatten*(bestDistancesFlatten != distIndivFlatten),'.')
+	simplePlot(ax,dc, countJaccardPerBin/countPerBin, str(map(lambda x : str(x*360/(np.pi*2)),[lon1,lat1,lon2,lat2])),"Geodesic Distance(Km)", "JaccardDistance",os.path.join(OUTPUT_FOLDER, str(score)+"," + str(map(lambda x : str(x*360/(np.pi*2)) ,[lon1,lat1,lon2,lat2]))),"With Train")
 #	numberPlotCounter+=1
+	
 
 
 testList=[weirdTest]
 #testList=[mantelTest,spearmanMantelTest,spearmanFlat]
-testClassList=[thistest(distIndiv,distJaccard) for thistest in testList]
+testClassList=[thistest(applyMaskJaccard(distIndiv),applyMaskJaccard(distJaccard)) for thistest in testList]
 def computeScores(fout,lon1,lat1,lon2,lat2):
 	t0=time.time()
 	fout.write("Parameters:%f,%f,%f,%f\n" % (lon1,lat1,lon2,lat2))
@@ -269,19 +277,23 @@ def computeScores(fout,lon1,lat1,lon2,lat2):
 
 	for testClass in testClassList:
 		print "Begin: " , str(testClass).split(' ')[0].split('.')[1] , "..." ,  
-		testResults.append(testClass(myLine,bestDistances))
+		testResults.append(testClass(myLine,applyMaskJaccard(bestDistances),tookTrainMask))
 		print "Done"
 	for testResultIndex in range(len(testResults)):
 		fout.write("Test "+str(testClassList[testResultIndex]).split(' ')[0].split('.')[1] + ": " + str(testResults[testResultIndex]) + '\n')
-	geoDistVsJaccardDist(lon1,lat1,lon2,lat2,bestDistances,testResults[0])
+	geoDistVsJaccardDist(lon1,lat1,lon2,lat2,bestDistances,testResults[0],tookTrainMask)
 	print "Time for a whole iteration: " , time.time()-t0
 	return testResults
 
-testParams=[(115.3,-27.37,139.2,-26.11) #Australia
+testParams=[(148.710938,-5.615986,-97.031250,13.923404)#pacific #(0.0,0.0,0.0,0.0)#empty train
+			,(115.3,-27.37,139.2,-26.11) #Australia
 			,(118.13,13.92,178.24,-17.64) #Oceania
 			,(-74.88,-1.75,-4.57,40.7)#spain - america
 			,(21.4453,10.83,109.68,0.0)#africa-oceania
 			]
+
+
+#testParams=[(-104.765625,15.284185,76.992188,1.054628)]#stupidtrain1
 
 #Initialize all the tests that we are going to do.
 
@@ -291,10 +303,11 @@ for testParam in testParams:
 	computeScores(fout,*testParam)
 
 
+#searchspace_degree=[]
 value=[]
 value_param=[]
-for search_point1 in searchspace_degree[:10]:
-	for search_point2 in searchspace_degree[:10]:
+for search_point1 in searchspace_degree:
+	for search_point2 in searchspace_degree:
 		computeScores(fout,*np.append(search_point1, search_point2))
 		#temp=wrapper_compute_llh(np.append(search_point1, search_point2))
 		#value.append(temp)
