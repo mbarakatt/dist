@@ -3,7 +3,7 @@ from pylab import *
 from scipy.stats import spearmanr
 import time
 class weirdTest:
-	def __init__(self, distIndiv,distJaccard, jaccardThreshold=1.0,maximumDistance=20000,nbBins=50):
+	def __init__(self, distIndiv,distJaccard, jaccardThreshold=0.22,maximumDistance=20000,nbBins=50):
 		self.distIndiv = distIndiv
 		self.distJaccard = distJaccard
 		self.distJaccardArgSort = -np.argsort(self.distJaccard.flatten().reshape(self.distJaccard.shape))/(np.size(self.distJaccard)+1) + 0.5
@@ -14,12 +14,9 @@ class weirdTest:
 		self.dc = (self.bins + (self.bins[1]-self.bins[0])/2.0)[0:-1]
 		self.jaccardBins = np.linspace(0.0,1.0,10+1)
 		self.jaccardDc = (self.jaccardBins+ (self.jaccardBins[1]-self.jaccardBins[0])/2.0)[0:-1]
-
-#	def getRank(M,filterMatrix=[],ignoreZeros=True):#Ignores 0 entries by default
-#		if filterMatrix == []:
-#			filterMatrix=M
-#		return np.argsort((np.argsort(xss[filterMatrix!=0 ) | not ignoreZeros]))+1
-
+		y=self.distJaccard.flatten()
+		y_temp = np.argsort( np.argsort(( y > jaccardThreshold ) * 10000000 + y ))
+		self.yRanks=np.amin([y_temp, np.argsort(np.argsort( (y <= jaccardThreshold )*10000000 + y )) + np.sum( y <= jaccardThreshold )],axis=0 )
 
 	def __call__(self,line,bestDistances,tookTrainMask):
 		self.numberTookTrainMask=np.sum(tookTrainMask)
@@ -49,15 +46,18 @@ class weirdTest:
 		#s= np.append(b1 ,getRank(self.bestDistances[self.jaccard> self.jaccardThreshold] + len(b1))
 		#s[s>len(b1)]=len(b1)
 
-		#countJaccardPerBin=np.histogram((self.distIndiv).flatten(),self.bins,weights=(self.distJaccard).flatten())[0]
+		#countJaccardPerBin=np.histogram((self.distIndiv).flatten(), self.bins,weights=(self.distJaccard).flatten())[0]
 		#countPerBin = np.histogram((self.distIndiv).flatten(), self.bins)[0]
 		#return self.test(self.distIndiv,self.distJaccard,bestDistances) 
 
-	def spear(self,xss,yss):
-		return 1-6*np.sum(np.power((np.argsort(np.argsort(xss[xss!=0]))+1)-(np.argsort(np.argsort(yss[xss!=0]))+1),2))/float((np.power(np.sum(xss!=0),3) - np.sum(xss!=0)))
+	def spear(self,xss):
+	#return 1-6*np.sum(np.power((np.argsort(np.argsort(xss[xss!=0]))+1)-(np.argsort(np.argsort(yss[xss!=0]))+1),2))/float((np.power(np.sum(xss!=0),3) - np.sum(xss!=0)))
+		return 1-6*np.sum(np.power((np.argsort(np.argsort(xss))) - (self.yRanks),2))/float((np.power(xss.size,3) - xss.size))
 		#return np.sum( map(lambda (xs,ys) :np.sum(xs!=0)*np.nan_to_num(1 - 6*np.sum(np.power((np.argsort(xs[xs!=0])+1)-(np.argsort(ys[xs!=0])+1),2))/float(np.power(np.sum(xs!=0),3)-np.sum(xs!=0))) , np.array([xss,yss]).swapaxes(0,1)))/float(np.sum(xss[xss!=0]))
 
-	def test(self,distIndivMask, distJaccardMask, bestDistancesMask):
+	def test(self, distIndivMask, distJaccardMask, bestDistancesMask):
 		#return (self.spear(bestDistancesMask.flatten(),distJaccardMask.flatten())- self.spear(distIndivMask.flatten(), distJaccardMask.flatten()))
-		return self.spear(bestDistancesMask,distJaccardMask)- self.spear(distIndivMask,distJaccardMask)
+		a, b = self.spear(bestDistancesMask,distJaccardMask), self.spear(self.indivDist,distJaccardMask) 
+		print "ab",a,b
+		return b-a
 		#return  np.sum(np.absolute(np.polyval(polyCoefWO,distIndivMask)- distJaccardMask) - np.absolute(np.polyval(polyCoefWO,bestDistancesMask)-distJaccardMask))/self.numberTookTrainMask

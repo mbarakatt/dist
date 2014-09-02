@@ -44,7 +44,7 @@ parse_jaccard(open(jaccard_file_path,'r'))
 tempDistJaccard = np.array(parse_jaccard(open(jaccard_file_path,'r')))
 maskJaccard = (tempDistJaccard<=JACCARD_MASK) 
 distJaccard = maskJaccard*tempDistJaccard
-applyMaskJaccard= lambda distM : (maskJaccard*distM)
+applyMaskJaccard= lambda distM : distM
 
 #distJaccard=np.array([[0.,0.5,0.2],[0.5,0.,0.1],[0.2,0.1,0.]])
 #---END PARSE RELATEDNESS---
@@ -59,6 +59,16 @@ lats = pos[1]#(90-pos[1])*(pos[1]>0) + ( -pos[1] + 90 ) * ( pos[1] <= 0 )
 #print "lons:",np.round(lons,1), "lats:", np.round(lats,1)
 lats, lons = map(lambda x: x*2*np.pi/360,[lats,lons]) #correct that
 #---END PARSING LONG LAT FILE---
+
+
+def parse_file_geo_dist(filep):
+        temp=[]
+        c=0
+        for line in filep:
+                temp.append(map(float,line.split()))
+                c+=1
+        return np.array(temp) + np.array(temp).T #cause its only triangular 
+distIndiv = parse_file_geo_dist(file("geographicDistancesLanguages.txt"))
 
 #Destription get_spherical_coor: Return points in lons, lats
 
@@ -78,7 +88,7 @@ searchspace_degree=searchspace_radians * 360.0/(2*np.pi)
 #savefig("test.jpg")
 
 
-distIndiv =  get_dist(lons,lats)
+#distIndiv =  get_dist(lons,lats)
 pos_euclidean = np.array(get_euclidean_coor(lons,lats))
 #xs,ys,zs = pos_euclidean
 
@@ -103,6 +113,59 @@ class line:
 mylines=[]
 def myrandomrange(a,b):
 	return random.random()*(abs(a-b)) + min(a,b)
+
+def get_dist_2pt_single(p1,p2):
+	retval= get_dist_2pt(p1,np.array([p2]))[0]
+	return retval
+
+def get_dist_2pt(p1,ps2):
+	ps2_lons, ps2_lats = map(np.array, zip(*ps2))
+	#print 'ps2_', ps2_lons, ps2_lats
+	return get_dist_one_many(p1[0], p1[1], ps2_lons, ps2_lats) #  + 1000000*arcIntersectProhibited(p1[0],p1[1],ps2_lons,ps2_lats)
+
+def get_dist_one_many(lon1,lat1,lons,lats): # great circle distance.
+	haversin = lambda theta : np.power(np.sin(theta/2.0),2) #(1-np.cos(theta))/2.0
+	arg = haversin(lats-lat1) + np.cos(lats) * np.cos(lat1) * haversin( lons - lon1 )
+	arg = 2 * EARTH_RADIUS * np.arcsin(np.sqrt(arg)) 
+	return arg
+
+#The arc is from A to B and C is the point. Here A, B are point on sphere(or vector starting at origin of sphere) in euclidean 3D space. C is a vector of the same nature
+def get_dist_point_arc(A,B,C):
+	#print "cross",A, B, C
+	t0= time.time()
+	D=np.cross(A,B)
+	E=np.cross(D,C)
+	U=np.cross(E,D)
+	U=U/np.array([get_norm(U)]).transpose() * EARTH_RADIUS
+	is_on_arc =  np.abs(get_angle([A],[B]) - ((get_angle([A],U)) + (get_angle([B],U)))) < NEGLIGEABLE_RADIAN
+	t1=time.time()
+	sphere_U, sphere_C, sphere_A, sphere_B = map(lambda x: np.array(get_spherical_coor(x)), [U,C,[A],[B]] )
+	#print "part1 time:", t1-t0
+	sphere_C_unzipped = np.array(zip(*sphere_C))
+	sphere_U_unzipped = np.array(zip(*sphere_U))
+	#dist_A = get_dist_to_pt(sphere_A[0][0], sphere_A[0][1], sphere_C_unzipped[0], sphere_C_unzipped[1])
+	dist_A = get_dist_2pt(sphere_A[0], sphere_C)
+	#dist_B = get_dist_to_pt(sphere_B[0][0], sphere_B[0][1], sphere_C_unzipped[0], sphere_C_unzipped[1])
+	dist_B = get_dist_2pt(sphere_B[0], sphere_C)
+	#dist_U = get_dist_to_pt(sphere_U_unzipped[0], sphere_U_unzipped[1], sphere_C_unzipped[0], sphere_C_unzipped[1])
+	dist_U = get_dist_2pt_array(sphere_U, sphere_C)
+	
+	temp  = np.where(is_on_arc, dist_U, np.minimum(dist_A, dist_B))
+	#temp2 = np.where(is_on_arc, map(lambda x : get_dist_2pt(*x), zip(*[sphere_U,sphere_C])), np.minimum(map(lambda c: get_dist_2pt(sphere_A[0],c),sphere_C), map(lambda c: get_dist_2pt(sphere_B[0],c),sphere_C)))
+	#print "equal?", temp[0][0:10], temp2[0][0:10]
+	#print "part2 time:", time.time() - t1
+	return temp
+
+#Input are numpy arrAY OF PT IN RADIANS(LONS,LATS)
+def get_dist_2pt_array(ps1,ps2):
+	ps1_lons, ps1_lats = ps1.T
+	ps2_lons, ps2_lats = ps2.T #map(np.array, zip(*ps2))
+	return get_dist_one_many(ps1_lons, ps1_lats, ps2_lons, ps2_lats)
+
+def git_dist_many_many(lons1,lats1,lons2,lats2):
+ 	arg = haversin(lats2-lats1) + np.cos(lats2) * np.cos(lats1) * haversin( lons2 - lons1 )
+	arg = 2 * EARTH_RADIUS * np.arcsin(np.sqrt(arg)) 
+	return arg
 
 sigmoid_params=map(float,[1,20.0,0.1])
 #sigmoid_params_search=[np.linspace(0.5,2,6),np.linspace(10,25,6),np.linspace(0, 0.5, 6)]
@@ -133,7 +196,8 @@ sigmoid_params_search=[[1.0],[20],[0.2]]
 #The option fullOutput gives the binary matrix of only the pairs of points that are using the train (ie that are closer to each other when they take the train
 def computeDistances(myline,distIndiv,distJaccard,fullOutput=False):
 	t,v = map(lambda x: list(get_euclidean_coor(x[0],x[1])), [myline.p1, myline.p2])
-	a=get_dist_point_arc(t,v,zip(*pos_euclidean))
+	#print "computeDistances:", t,v , np.array(pos_euclidean)
+	a=get_dist_point_arc(t,v,pos_euclidean)
 	b=np.array( a for i in range(len(distIndiv)))
 	trans= a.transpose()
 	added= a + trans
@@ -209,15 +273,13 @@ def geoDistVsJaccardDist(lon1, lat1, lon2, lat2, bestDistances,score,tookTrainMa
 #	numberPlotCounter+=1
 	
 
-
 testList=[weirdTest]
-#testList=[mantelTest,spearmanMantelTest,spearmanFlat]
-testClassList=[thistest(applyMaskJaccard(distIndiv),applyMaskJaccard(distJaccard)) for thistest in testList]
+testClassList=[thistest(applyMaskJaccard(distIndiv), applyMaskJaccard(distJaccard)) for thistest in testList]
 def computeScores(fout,lon1,lat1,lon2,lat2):
 	t0=time.time()
 	fout.write("Parameters:%f,%f,%f,%f\n" % (lon1,lat1,lon2,lat2))
 	lon1,lat1,lon2,lat2 = [x*2*np.pi/360.0 for x in [lon1,lat1,lon2,lat2]]
-	length= get_dist_2pt([lon1,lat1] , [lon2,lat2])
+	length= get_dist_2pt_single([lon1,lat1] , [lon2,lat2])
 	fout.write("Length of the line: " + str(length)+ '\n')
 	myLine=line(lon1,lat1,lon2,lat2)
 	bestDistances,tookTrainMask=computeDistances(myLine,distIndiv,distJaccard,fullOutput=True)
