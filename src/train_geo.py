@@ -28,6 +28,10 @@ from geode import *
 #---END IMPORTING TESTS---
 print(" Done")
 
+mintdist=float(sys.argv[1])
+maxtdist=float(sys.argv[2])
+
+print "MinDist:",mintdist,"MaxDist:",maxtdist
 #---CONSTANT DEFINITION-------
 DISTANCE_MASK=20000 #Km
 JACCARD_MASK=1.0 #below this number is included
@@ -68,12 +72,12 @@ def parse_file_geo_dist(filep):
                 temp.append(map(float,line.split()))
                 c+=1
         return np.array(temp) + np.array(temp).T #cause its only triangular 
-distIndiv = parse_file_geo_dist(file("geographicDistancesLanguages.txt"))
+distIndiv = parse_file_geo_dist(file("geographicGeoDistLanguages.txt"))
 
 #Destription get_spherical_coor: Return points in lons, lats
 
 #list of points
-searchspace_euclidean=np.array(map(lambda x : x.split(" "), open("searchspace3.txt",'r').read().split("\n"))[:-1])#*EARTH_RADIUS
+searchspace_euclidean=np.array(map(lambda x : x.split(" "), open("searchspace5.txt",'r').read().split("\n"))[:-1])#*EARTH_RADIUS
 searchspace_euclidean=[map(lambda x : float(x)*EARTH_RADIUS, item) for item in searchspace_euclidean]
 #print len(searchspace_euclidean)
 #lons, lats
@@ -272,15 +276,18 @@ def geoDistVsJaccardDist(lon1, lat1, lon2, lat2, bestDistances,score,tookTrainMa
 	simplePlot(ax,dc, countJaccardPerBin/countPerBin, str(map(lambda x : str(x*360/(np.pi*2)),[lon1,lat1,lon2,lat2])),"Geodesic Distance(Km)", "JaccardDistance",os.path.join(OUTPUT_FOLDER, str(score)+"," + str(map(lambda x : str(x*360/(np.pi*2)) ,[lon1,lat1,lon2,lat2]))),"With Train")
 #	numberPlotCounter+=1
 	
+def write_train(fout,lon1,lat1,lon2,lat2,score):
+	fout.write("%f,%f,%f,%f,%f\n" % (lon1,lat1,lon2,lat2,score) )
+	fout.flush()
 
 testList=[weirdTest]
 testClassList=[thistest(applyMaskJaccard(distIndiv), applyMaskJaccard(distJaccard)) for thistest in testList]
 def computeScores(fout,lon1,lat1,lon2,lat2):
 	t0=time.time()
-	fout.write("Parameters:%f,%f,%f,%f\n" % (lon1,lat1,lon2,lat2))
+	#fout.write("Parameters:%f,%f,%f,%f\n" % (lon1,lat1,lon2,lat2))
 	lon1,lat1,lon2,lat2 = [x*2*np.pi/360.0 for x in [lon1,lat1,lon2,lat2]]
 	length= get_dist_2pt_single([lon1,lat1] , [lon2,lat2])
-	fout.write("Length of the line: " + str(length)+ '\n')
+	#fout.write("Length of the line: " + str(length)+ '\n')
 	myLine=line(lon1,lat1,lon2,lat2)
 	bestDistances,tookTrainMask=computeDistances(myLine,distIndiv,distJaccard,fullOutput=True)
 	testResults=[]
@@ -290,13 +297,15 @@ def computeScores(fout,lon1,lat1,lon2,lat2):
 		print "Begin: " , str(testClass).split(' ')[0].split('.')[1] , "..." ,  
 		testResults.append(testClass(myLine,applyMaskJaccard(bestDistances),tookTrainMask))
 		print "Done"
-	for testResultIndex in range(len(testResults)):
-		fout.write("Test "+str(testClassList[testResultIndex]).split(' ')[0].split('.')[1] + ": " + str(testResults[testResultIndex]) + '\n')
-	geoDistVsJaccardDist(lon1,lat1,lon2,lat2,bestDistances,testResults[0],tookTrainMask)
-	print "Time for a whole iteration: " , time.time()-t0
+	#for testResultIndex in range(len(testResults)):
+		#fout.write("Test "+str(testClassList[testResultIndex]).split(' ')[0].split('.')[1] + ": " + str(testResults[testResultIndex]) + '\n')
+	#geoDistVsJaccardDist(lon1,lat1,lon2,lat2,bestDistances,testResults[0],tookTrainMask)
+	print "Time for a whole iteration: " , time.time()-t0,"Results", testResults
+	write_train(fout,lon1,lat1,lon2,lat2,testResults[0])
 	return testResults
 
-testParams=[(148.710938,-5.615986,-97.031250,13.923404)#pacific #(0.0,0.0,0.0,0.0)#empty train
+testParams=[(0.0,0.0,0.0,0.0)#empty train
+			,(148.710938,-5.615986,-97.031250,13.923404)#pacific
 			,(115.3,-27.37,139.2,-26.11) #Australia
 			,(118.13,13.92,178.24,-17.64) #Oceania
 			,(-74.88,-1.75,-4.57,40.7)#spain - america
@@ -308,17 +317,26 @@ testParams=[(148.710938,-5.615986,-97.031250,13.923404)#pacific #(0.0,0.0,0.0,0.
 
 #Initialize all the tests that we are going to do.
 
-fout = open(os.path.join(OUTPUT_FOLDER, "train_geo_out") + ".txt",'w')
+fout = open(os.path.join(OUTPUT_FOLDER, "train_geo_out_" + str(maxtdist)) + ".txt",'w')
 
 for testParam in testParams:
 	computeScores(fout,*testParam)
 
 
+#
+
 #searchspace_degree=[]
 value=[]
 value_param=[]
+torad=lambda x : x*2*np.pi/360.0
 for search_point1 in searchspace_degree:
 	for search_point2 in searchspace_degree:
+		
+		rpt1, rpt2 = torad(search_point1), torad(search_point2)
+		length=get_dist_2pt_single(rpt1,rpt2)
+		if length <mintdist or length >maxtdist:
+			continue
+		print "Length:", length
 		computeScores(fout,*np.append(search_point1, search_point2))
 		#temp=wrapper_compute_llh(np.append(search_point1, search_point2))
 		#value.append(temp)

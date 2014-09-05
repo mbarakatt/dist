@@ -5,7 +5,7 @@ import itertools
 
 NEGLIGEABLE_RADIAN=0.005
 longlatfile = "../data/language/longitudelatitude_americasnegative.txt"
-outFile="geographicDistancesLanguages2.txt"
+outFile="geographicGeoDistLanguages.txt"
 fOutFile=open(outFile,'w')
 
 
@@ -94,14 +94,17 @@ lats, lons = map(lambda x: x*2*np.pi/360,[lats,lons]) #correct that
 #---DEFINING BLOCKING LINES---
 #lon1,lat1,lon2,lat2
 toRadians = lambda x : x*2*np.pi/360.0
-blockLines=toRadians(np.array([[-173.320313,54.534318,-174.023438,-57.136239],#Pacific
+
+if False:
+	blockLines=toRadians(np.array([[-173.320313,54.534318,-174.023438,-57.136239],#Pacific
 				[-28.476563,62.267923,-26.367188,-52.268157],#Atlantic
 				[62.929688,-60.759160,62.929688,11.141932],#Indian
 				[26.0,33.5,11.6,36.1],#Mediterranean 
 				[-9.5,34.3,11.3,39.1],#Strait of Gibraltar
 				[-126.38, 77.31, 123.4, 77.88]#Above Russia/Canada
 				]))
-#blockLines=np.array([])
+else:
+	blockLines=np.array([])
 #---END DEFINING BLOCKING LINES-
 
 
