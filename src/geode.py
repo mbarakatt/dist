@@ -3,6 +3,16 @@ import time
 NEGLIGEABLE_RADIAN=0.005
 EARTH_RADIUS=6371
 
+def parse_file_geo_dist(filep):
+        temp=[]
+        c=0
+        for line in filep:
+                temp.append(map(float,line.split()))
+                c+=1
+        return np.array(temp)  
+
+def toDegrees(list):
+	return list*360/(2*np.pi)
 
 def get_norm(x):	
 	return  np.sqrt(np.sum(np.power(x,2),axis=1))
@@ -12,6 +22,7 @@ def get_angle(p1,p2):
 	p2=np.array(p2)
 #	print "get_angle", p1, p2, np.dot(p1,np.array(p2).transpose())
 	return  np.abs(np.arccos(np.sum(p1*p2,axis=1)/(get_norm(np.array(p1))*get_norm(np.array(p2))))) #always positive
+
 
 def get_spherical_coor(points):
 	xs, ys, zs = map(np.array,zip(*points))
@@ -32,6 +43,7 @@ def get_dist(lons,lats): # great circle distance.
 	arg = np.power(np.sin((matrix_lats-np.array([lats]).transpose())/2.0), 2) + np.cos(np.array([lats]).transpose()) * np.cos(matrix_lats) * np.power(np.sin((matrix_lons-np.array([lons]).transpose())/2),2)
 	arg = 2*np.arcsin(np.sqrt(arg)) #np.where( np.fabs(arg) < 1., arg, 0.999999)
 	return EARTH_RADIUS * arg
+
 def haversin(theta):
-	np.power(np.sin(theta/2.0),2) #(1-np.cos(theta))/2.0
+	return np.power(np.sin(np.array(theta)/2.0),2) #(1-np.cos(theta))/2.0
 

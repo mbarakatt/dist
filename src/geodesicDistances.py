@@ -2,15 +2,75 @@ import numpy as np
 from geode import *
 from time import *
 import itertools
+import sys
+import getopt
 
 NEGLIGEABLE_RADIAN=0.005
-longlatfile = "../data/language/longitudelatitude_americasnegative.txt"
-outFile="geographicGeoDistLanguages.txt"
-fOutFile=open(outFile,'w')
+#longlatfile = "../data/language/longitudelatitude_americasnegative.txt"
+#outFile="geographicGeoDistLanguages.txt"
+def usage():
+	print "Usage: \n \t -l longlatfile.txt \n \t -o outfile.txt"
+	print "You entered:" ,sys.argv
+optlist,args=getopt.getopt(sys.argv[1:],"o:l:")
+outFile=""
+longlatfile=""
+for flag,val in optlist:
+	if flag =="-o":
+		outFile = val
+		outFileWOTrain=outFile.split('.')[0] + "WO.txt"
+	if flag =="-l":
+		longlatfile = val 
+if outFile=="":
+	outFile="geographicGeoDistLanguagesTest.txt"
+	outFileWOTrain=outFile.split('.')[0] +"WO.txt" 
+if longlatfile=="":
+	usage()
+	exit(2)
 
+fOutFile=open(outFile,'w')
+fOutFileWO=open(outFileWOTrain,'w')
+
+class line:
+	def __init__(self,lon1,lat1,lon2,lat2):
+		self.p1=[lon1,lat1]
+		self.p2=[lon2,lat2]
+
+#Input are numpy arrAY OF PT IN RADIANS(LONS,LATS)
+def get_dist_2pt_array(ps1,ps2):
+	ps1_lons, ps1_lats = ps1.T
+	ps2_lons, ps2_lats = ps2.T #map(np.array, zip(*ps2))
+	return get_dist_one_many(ps1_lons, ps1_lats, ps2_lons, ps2_lats)
+
+def get_dist_point_arc(A,B,C):
+	D=np.cross(A,B)
+	E=np.cross(D,C)
+	U=np.cross(E,D)
+	U=U/np.array([get_norm(U)]).transpose() * EARTH_RADIUS
+	is_on_arc =  np.abs(get_angle([A],[B]) - ((get_angle([A],U)) + (get_angle([B],U)))) < NEGLIGEABLE_RADIAN
+	#t1=time.time()
+	sphere_U, sphere_C, sphere_A, sphere_B = map(lambda x: np.array(get_spherical_coor(x)), [U,C,[A],[B]] )
+	sphere_C_unzipped = np.array(zip(*sphere_C))
+	sphere_U_unzipped = np.array(zip(*sphere_U))
+	dist_A = get_dist_2pt(sphere_A[0], sphere_C)
+	dist_B = get_dist_2pt(sphere_B[0], sphere_C)
+	dist_U = get_dist_2pt_array(sphere_U, sphere_C)
+	temp  = np.where(is_on_arc, dist_U, np.minimum(dist_A, dist_B))
+	return temp
+
+def computeDistances(myline,distIndiv):
+	t,v = map(lambda x: list(get_euclidean_coor(x[0],x[1])), [myline.p1, myline.p2])
+	a=get_dist_point_arc(t,v,pos_euclidean)
+	b=np.array( [a] * len(distIndiv))
+	added= b.T + b
+	tookTrainMask= (added < distIndiv)
+	dist_L = np.minimum(distIndiv , added)
+	np.fill_diagonal(dist_L,0)
+	return dist_L 
 
 def get_dist_one_many(lon1,lat1,lons,lats): # great circle distance.
 	#haversin = lambda theta : np.power(np.sin(theta/2.0),2) #(1-np.cos(theta))/2.0
+	#print lon1, lat1, lons, lats, np.cos(lats), np.cos(lats), haversin(lons-lon1), lons-lon1,haversin(lats-lat1), lats-lat1
+	lons=np.array(lons)
 	arg = haversin(lats-lat1) + np.cos(lats) * np.cos(lat1) * haversin( lons - lon1 )
 	arg = 2 * EARTH_RADIUS * np.arcsin(np.sqrt(arg)) 
 	return arg
@@ -83,14 +143,17 @@ def get_dist_2pt(p1,ps2):
 #---PARSING LONG LAT FILE-------
 f_longlatfile = open(longlatfile, 'r')
 lines_longlatfile = f_longlatfile.read().split('\n')
-#pos = [np.array([0.,10.,10.]),np.array([0.,10.,20.])]
-pos=map(lambda x : np.array(map(float,x)), zip(*[ line.split('\t') for line in lines_longlatfile ]))
+#pos = [np.array([0.,10.,10.]),np.array([0.,10.,20.])]print "lines",Lines_longlatfile
+if lines_longlatfile[-1]=='':
+	lines_longlatfile=lines_longlatfile[:-1]
+pos= map(np.array,np.array([map(float,this_line.split('\t')) for this_line in lines_longlatfile ]).T)
 lons = pos[0]#(360+pos[0])*(pos[0]<=0) + pos[0]*(pos[0]>0)
 lats = pos[1]#(90-pos[1])*(pos[1]>0) + ( -pos[1] + 90 ) * ( pos[1] <= 0 )
 #print "lons:",np.round(lons,1), "lats:", np.round(lats,1)
 lats, lons = map(lambda x: x*2*np.pi/360,[lats,lons]) #correct that
 #---END PARSING LONG LAT FILE---
 
+pos_euclidean=get_euclidean_coor(lons,lats)
 #---DEFINING BLOCKING LINES---
 #lon1,lat1,lon2,lat2
 toRadians = lambda x : x*2*np.pi/360.0
@@ -132,20 +195,25 @@ print distanceWayPoints
 #print arcIntersectProhibited(toRadians(-30),toRadians(0),np.array([toRadians(10)]),np.array([toRadians(0)]))
 
 
-print "Test"
 
 dist=[]#np.zeros(len(lons))
 posZipped=zip(lons,lats)
 print posZipped[0][1]
 for pos1 in range(len(posZipped)):
-	t0=time()
 	#print "Current:", lons[pos1],lats[pos1],lons,lats
 	dist.append(np.concatenate([[0]*pos1,computeDistancesLanguages(posZipped[pos1][0],posZipped[pos1][1],lons[pos1:],lats[pos1:])]))
 #	print "This iter:", computeDistancesLanguages(posZipped[pos1][0],posZipped[pos1][1],lons,lats)
-	print "pos1 ", pos1, "Time:" , time()-t0
+	print "pos1 ", pos1, "Time:" #, #time()-t0
 
-print np.array(dist)
-	
+
+
+dist = np.triu(np.array(dist),k=1)
+dist = dist + dist.T
+
+bestDistances=computeDistances(line(0,0,40,40), dist)
+np.savetxt(fOutFile,bestDistances,delimiter="\t")	
+np.savetxt(fOutFileWO,dist,delimiter='\t')
+exit(1)
 for i in range(len(lons)):
 	for j in range(len(lons)):
 		fOutFile.write(str(dist[i][j] ))

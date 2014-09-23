@@ -38,8 +38,10 @@ JACCARD_MASK=1.0 #below this number is included
 OUTPUT_FOLDER=os.path.join("../results" , time.strftime("%Y.%m.%d.%Hh%mm"))
 EARTH_RADIUS=6371
 NEGLIGEABLE_RADIAN=0.005
-jaccard_file_path="../data/language/Ruhlen2014jaccard.txt"
-longlatfile = "../data/language/longitudelatitude_americasnegative.txt"
+#jaccard_file_path="../data/language/Ruhlen2014jaccard.txt"
+#longlatfile = "../data/language/longitudelatitude_americasnegative.txt"
+jaccard_file_path="test_jaccard.txt"
+longlatfile = "test_longlat.txt"
 #---END CONSTANT DEFINITION---
 
 #---PARSE RELATEDNESS-------
@@ -49,31 +51,27 @@ tempDistJaccard = np.array(parse_jaccard(open(jaccard_file_path,'r')))
 maskJaccard = (tempDistJaccard<=JACCARD_MASK) 
 distJaccard = maskJaccard*tempDistJaccard
 applyMaskJaccard= lambda distM : distM
-
+#print "distJaccard", distJaccard
 #distJaccard=np.array([[0.,0.5,0.2],[0.5,0.,0.1],[0.2,0.1,0.]])
 #---END PARSE RELATEDNESS---
 
 #---PARSING LONG LAT FILE-------
 f_longlatfile = open(longlatfile, 'r')
 lines_longlatfile = f_longlatfile.read().split('\n')
+if lines_longlatfile[-1]=='':
+	lines_longlatfile=lines_longlatfile[:-1]
 #pos = [np.array([0.,10.,10.]),np.array([0.,10.,20.])]
-pos=map(lambda x : np.array(map(float,x)), zip(*[ line.split('\t') for line in lines_longlatfile ]))
+pos= map(np.array,np.array([map(float,line.split('\t')) for line in lines_longlatfile ]).T)
+#print "POS", pos
 lons = pos[0]#(360+pos[0])*(pos[0]<=0) + pos[0]*(pos[0]>0)
 lats = pos[1]#(90-pos[1])*(pos[1]>0) + ( -pos[1] + 90 ) * ( pos[1] <= 0 )
 #print "lons:",np.round(lons,1), "lats:", np.round(lats,1)
 lats, lons = map(lambda x: x*2*np.pi/360,[lats,lons]) #correct that
 #---END PARSING LONG LAT FILE---
 
-
-def parse_file_geo_dist(filep):
-        temp=[]
-        c=0
-        for line in filep:
-                temp.append(map(float,line.split()))
-                c+=1
-        return np.array(temp) + np.array(temp).T #cause its only triangular 
-distIndiv = parse_file_geo_dist(file("geographicGeoDistLanguages.txt"))
-
+#distIndiv = parse_file_geo_dist(file("geographicGeoDistLanguages.txt"))
+distIndiv = parse_file_geo_dist(file("geographicGeoDistLanguagesTestWO.txt"))
+#print "distIndiv", distIndiv
 #Destription get_spherical_coor: Return points in lons, lats
 
 #list of points
@@ -135,8 +133,6 @@ def get_dist_one_many(lon1,lat1,lons,lats): # great circle distance.
 
 #The arc is from A to B and C is the point. Here A, B are point on sphere(or vector starting at origin of sphere) in euclidean 3D space. C is a vector of the same nature
 def get_dist_point_arc(A,B,C):
-	#print "cross",A, B, C
-	t0= time.time()
 	D=np.cross(A,B)
 	E=np.cross(D,C)
 	U=np.cross(E,D)
@@ -144,20 +140,12 @@ def get_dist_point_arc(A,B,C):
 	is_on_arc =  np.abs(get_angle([A],[B]) - ((get_angle([A],U)) + (get_angle([B],U)))) < NEGLIGEABLE_RADIAN
 	t1=time.time()
 	sphere_U, sphere_C, sphere_A, sphere_B = map(lambda x: np.array(get_spherical_coor(x)), [U,C,[A],[B]] )
-	#print "part1 time:", t1-t0
 	sphere_C_unzipped = np.array(zip(*sphere_C))
 	sphere_U_unzipped = np.array(zip(*sphere_U))
-	#dist_A = get_dist_to_pt(sphere_A[0][0], sphere_A[0][1], sphere_C_unzipped[0], sphere_C_unzipped[1])
 	dist_A = get_dist_2pt(sphere_A[0], sphere_C)
-	#dist_B = get_dist_to_pt(sphere_B[0][0], sphere_B[0][1], sphere_C_unzipped[0], sphere_C_unzipped[1])
 	dist_B = get_dist_2pt(sphere_B[0], sphere_C)
-	#dist_U = get_dist_to_pt(sphere_U_unzipped[0], sphere_U_unzipped[1], sphere_C_unzipped[0], sphere_C_unzipped[1])
 	dist_U = get_dist_2pt_array(sphere_U, sphere_C)
-	
 	temp  = np.where(is_on_arc, dist_U, np.minimum(dist_A, dist_B))
-	#temp2 = np.where(is_on_arc, map(lambda x : get_dist_2pt(*x), zip(*[sphere_U,sphere_C])), np.minimum(map(lambda c: get_dist_2pt(sphere_A[0],c),sphere_C), map(lambda c: get_dist_2pt(sphere_B[0],c),sphere_C)))
-	#print "equal?", temp[0][0:10], temp2[0][0:10]
-	#print "part2 time:", time.time() - t1
 	return temp
 
 #Input are numpy arrAY OF PT IN RADIANS(LONS,LATS)
@@ -202,9 +190,8 @@ def computeDistances(myline,distIndiv,distJaccard,fullOutput=False):
 	t,v = map(lambda x: list(get_euclidean_coor(x[0],x[1])), [myline.p1, myline.p2])
 	#print "computeDistances:", t,v , np.array(pos_euclidean)
 	a=get_dist_point_arc(t,v,pos_euclidean)
-	b=np.array( a for i in range(len(distIndiv)))
-	trans= a.transpose()
-	added= a + trans
+	b=np.array( [a] * len(distIndiv))
+	added= b.T + b
 	tookTrainMask= (added < distIndiv)
 	dist_L = np.minimum(distIndiv , added)
 	np.fill_diagonal(dist_L,0)
@@ -294,9 +281,9 @@ def computeScores(fout,lon1,lat1,lon2,lat2):
 	
 
 	for testClass in testClassList:
-		print "Begin: " , str(testClass).split(' ')[0].split('.')[1] , "..." ,  
+		#print "Begin: " , str(testClass).split(' ')[0].split('.')[1] , "..." ,  
 		testResults.append(testClass(myLine,applyMaskJaccard(bestDistances),tookTrainMask))
-		print "Done"
+		#print "Done"
 	#for testResultIndex in range(len(testResults)):
 		#fout.write("Test "+str(testClassList[testResultIndex]).split(' ')[0].split('.')[1] + ": " + str(testResults[testResultIndex]) + '\n')
 	#geoDistVsJaccardDist(lon1,lat1,lon2,lat2,bestDistances,testResults[0],tookTrainMask)
@@ -305,12 +292,13 @@ def computeScores(fout,lon1,lat1,lon2,lat2):
 	return testResults
 
 testParams=[(0.0,0.0,0.0,0.0)#empty train
-			,(148.710938,-5.615986,-97.031250,13.923404)#pacific
-			,(115.3,-27.37,139.2,-26.11) #Australia
-			,(118.13,13.92,178.24,-17.64) #Oceania
-			,(-74.88,-1.75,-4.57,40.7)#spain - america
-			,(21.4453,10.83,109.68,0.0)#africa-oceania
-			]
+			] 
+			#,(148.710938,-5.615986,-97.031250,13.923404)#pacific
+			#,(115.3,-27.37,139.2,-26.11) #Australia
+			#,(118.13,13.92,178.24,-17.64) #Oceania
+			#,(-74.88,-1.75,-4.57,40.7)#spain - america
+			#,(21.4453,10.83,109.68,0.0)#africa-oceania
+			#]
 
 
 #testParams=[(-104.765625,15.284185,76.992188,1.054628)]#stupidtrain1
@@ -336,7 +324,9 @@ for search_point1 in searchspace_degree:
 		length=get_dist_2pt_single(rpt1,rpt2)
 		if length <mintdist or length >maxtdist:
 			continue
-		print "Length:", length
+		if search_point1[0] > search_point2[0] or search_point1[1] > search_point2[1]:
+			continue
+		#print "Length:", length
 		computeScores(fout,*np.append(search_point1, search_point2))
 		#temp=wrapper_compute_llh(np.append(search_point1, search_point2))
 		#value.append(temp)

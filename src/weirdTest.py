@@ -6,6 +6,7 @@ class weirdTest:
 	def __init__(self, distIndiv,distJaccard, jaccardThreshold=0.22,maximumDistance=20000,nbBins=50):
 		self.distIndiv = distIndiv.flatten()
 		self.distJaccard = distJaccard
+		self.triu_indices = np.triu_indices(self.distJaccard.shape[0],1)
 		self.distJaccardArgSort = -np.argsort(self.distJaccard.flatten().reshape(self.distJaccard.shape))/(np.size(self.distJaccard)+1) + 0.5
 		self.maximumDistance = maximumDistance
 		self.jaccardThreshold=jaccardThreshold
@@ -14,17 +15,26 @@ class weirdTest:
 		self.dc = (self.bins + (self.bins[1]-self.bins[0])/2.0)[0:-1]
 		self.jaccardBins = np.linspace(0.0,1.0,10+1)
 		self.jaccardDc = (self.jaccardBins+ (self.jaccardBins[1]-self.jaccardBins[0])/2.0)[0:-1]
-		self.y=self.distJaccard.flatten()
+		self.y=self.get_ut_flatten(self.distJaccard)
 		self.nb_y_below_t = np.sum( self.y <= jaccardThreshold )
 		self.y_temp = np.argsort( np.argsort(( self.y > jaccardThreshold ) * 10000000 + self.y ))
 
 	def __call__(self,line,bestDistances,tookTrainMask):
-		return self.test(bestDistances.flatten())
+		retval=self.test(self.get_ut_flatten(bestDistances))
+		#if retval !=0.5:
+		#	print "Number to take train:", np.sum(tookTrainMask),tookTrainMask
+	
+		return retval
 		#self.numberTookTrainMask=np.sum(tookTrainMask)
 		#self.distIndivTookTrain=self.distIndiv*tookTrainMask
 		#self.distJaccardTookTrain=self.distJaccard*tookTrainMask
 		#self.bestDistances = bestDistances
 		#return np.sum(np.nan_to_num((self.distIndiv-self.bestDistances)/self.distIndiv)*(self.distJaccardArgSort))
+
+	def get_ut_flatten(self,M):
+		#flat=np.triu(M,k=1).flatten()
+		#return flat[np.nonzero(flat)]
+		return M[self.triu_indices]
 
 	def spear(self,xss):
 	#return 1-6*np.sum(np.power((np.argsort(np.argsort(xss[xss!=0]))+1)-(np.argsort(np.argsort(yss[xss!=0]))+1),2))/float((np.power(np.sum(xss!=0),3) - np.sum(xss!=0)))
@@ -33,7 +43,11 @@ class weirdTest:
 		yRanks=np.amin([self.y_temp, np.argsort(np.argsort( (self.y <= self.jaccardThreshold )*10000000 + xss )) + self.nb_y_below_t],axis=0)
 		#print "avg", np.mean(xss),np.mean(yRanks)
 		#print "tiny", txss, tyRanks
-		return 1-6*np.sum(np.power((np.argsort(np.argsort(xss))) - (yRanks),2))/float((81448736403347855424L - xss.size))
+		retval= 1-6*np.sum(np.power((np.argsort(np.argsort(xss))) - (yRanks),2))/float((np.power(xss.size,3) - xss.size))
+		#if retval != 0.5:
+		#	print "Rank", np.argsort(np.argsort(xss)), yRanks , "Dist", xss,self.y 
+		
+		return retval
 		#return np.sum( map(lambda (xs,ys) :np.sum(xs!=0)*np.nan_to_num(1 - 6*np.sum(np.power((np.argsort(xs[xs!=0])+1)-(np.argsort(ys[xs!=0])+1),2))/float(np.power(np.sum(xs!=0),3)-np.sum(xs!=0))) , np.array([xss,yss]).swapaxes(0,1)))/float(np.sum(xss[xss!=0]))
 
 	def test(self,  bestDistancesMask):
