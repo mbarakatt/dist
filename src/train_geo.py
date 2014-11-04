@@ -2,7 +2,7 @@
 print("Starting train_geo.py")
 print "Importing modules...",
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import scipy.optimize
@@ -28,6 +28,16 @@ from geode import *
 #---END IMPORTING TESTS---
 print(" Done")
 
+#importing bounds
+bounds_pt1, bounds_pt2= [(-100, 25), (-70, 42)]
+#Input should be in degrees
+def is_in_bounds(lon,lat): 
+	result = bounds_pt1[0] < lon and lon < bounds_pt2[0] and bounds_pt1[1] < lat and lat < bounds_pt2[1]
+	#if result:
+	#	print lon,lat 
+	return bounds_pt1[0] < lon and lon < bounds_pt2[0] and bounds_pt1[1] < lat and lat < bounds_pt2[1]
+
+
 mintdist=float(sys.argv[1])
 maxtdist=float(sys.argv[2])
 
@@ -40,17 +50,17 @@ EARTH_RADIUS=6371
 NEGLIGEABLE_RADIAN=0.005
 #jaccard_file_path="../data/language/Ruhlen2014jaccard.txt"
 #longlatfile = "../data/language/longitudelatitude_americasnegative.txt"
-jaccard_file_path="test_jaccard.txt"
-longlatfile = "test_longlat.txt"
+jaccard_file_path="../SCCS/cM_Matrix_18.txt"
+longlatfile = "../SCCS/SCCS_lonlat.txt"
 #---END CONSTANT DEFINITION---
 
 #---PARSE RELATEDNESS-------
 call(['mkdir','-p',OUTPUT_FOLDER])
 parse_jaccard(open(jaccard_file_path,'r'))
-tempDistJaccard = np.array(parse_jaccard(open(jaccard_file_path,'r')))
+tempDistJaccard = np.random.permutation(np.array(parse_jaccard(open(jaccard_file_path,'r'))))
 maskJaccard = (tempDistJaccard<=JACCARD_MASK) 
-distJaccard = maskJaccard*tempDistJaccard
-applyMaskJaccard= lambda distM : distM
+distJaccard = tempDistJaccard
+applyMaskJaccard = lambda distM : distM
 #print "distJaccard", distJaccard
 #distJaccard=np.array([[0.,0.5,0.2],[0.5,0.,0.1],[0.2,0.1,0.]])
 #---END PARSE RELATEDNESS---
@@ -70,17 +80,25 @@ lats, lons = map(lambda x: x*2*np.pi/360,[lats,lons]) #correct that
 #---END PARSING LONG LAT FILE---
 
 #distIndiv = parse_file_geo_dist(file("geographicGeoDistLanguages.txt"))
-distIndiv = parse_file_geo_dist(file("geographicGeoDistLanguagesTestWO.txt"))
+distIndiv = parse_file_geo_dist(file("../SCCS/geodesicDist.txt"))
 #print "distIndiv", distIndiv
 #Destription get_spherical_coor: Return points in lons, lats
 
 #list of points
-searchspace_euclidean=np.array(map(lambda x : x.split(" "), open("searchspace5.txt",'r').read().split("\n"))[:-1])#*EARTH_RADIUS
+searchspace_euclidean=np.array(map(lambda x : x.split(" "), open("searchspheres/searchspace18.txt",'r').read().split("\n"))[:-1])#*EARTH_RADIUS
 searchspace_euclidean=[map(lambda x : float(x)*EARTH_RADIUS, item) for item in searchspace_euclidean]
 #print len(searchspace_euclidean)
 #lons, lats
 searchspace_radians=np.array(get_spherical_coor(searchspace_euclidean))
 searchspace_degree=searchspace_radians * 360.0/(2*np.pi)
+searchspace_valid=[]
+#print "what" ,searchspace_degree
+for i in range(len(searchspace_degree)):
+	if is_in_bounds(*searchspace_degree[i]):
+		searchspace_valid.append(True)
+	else:
+		searchspace_valid.append(False)
+print 'nbptin', np.sum(searchspace_valid)
 
 #print "eucledean", np.round(searchspace_euclidean,decimals=3)
 #print "radians",np.round(searchspace_radians,decimals=3)
@@ -136,7 +154,7 @@ def get_dist_point_arc(A,B,C):
 	D=np.cross(A,B)
 	E=np.cross(D,C)
 	U=np.cross(E,D)
-	U=U/np.array([get_norm(U)]).transpose() * EARTH_RADIUS
+	U=U*1./np.array([get_norm(U)]).transpose() * EARTH_RADIUS
 	is_on_arc =  np.abs(get_angle([A],[B]) - ((get_angle([A],U)) + (get_angle([B],U)))) < NEGLIGEABLE_RADIAN
 	t1=time.time()
 	sphere_U, sphere_C, sphere_A, sphere_B = map(lambda x: np.array(get_spherical_coor(x)), [U,C,[A],[B]] )
@@ -187,6 +205,7 @@ sigmoid_params_search=[[1.0],[20],[0.2]]
 
 #The option fullOutput gives the binary matrix of only the pairs of points that are using the train (ie that are closer to each other when they take the train
 def computeDistances(myline,distIndiv,distJaccard,fullOutput=False):
+	#print myline
 	t,v = map(lambda x: list(get_euclidean_coor(x[0],x[1])), [myline.p1, myline.p2])
 	#print "computeDistances:", t,v , np.array(pos_euclidean)
 	a=get_dist_point_arc(t,v,pos_euclidean)
@@ -266,31 +285,94 @@ def geoDistVsJaccardDist(lon1, lat1, lon2, lat2, bestDistances,score,tookTrainMa
 def write_train(fout,lon1,lat1,lon2,lat2,score):
 	fout.write("%f,%f,%f,%f,%f\n" % (lon1,lat1,lon2,lat2,score) )
 	fout.flush()
-
 testList=[weirdTest]
-testClassList=[thistest(applyMaskJaccard(distIndiv), applyMaskJaccard(distJaccard)) for thistest in testList]
+testClassList=[thistest(distIndiv,distJaccard,threshold=40,negateyaxis=True) for thistest in testList]
+print "What is going on2"
 def computeScores(fout,lon1,lat1,lon2,lat2):
 	t0=time.time()
-	#fout.write("Parameters:%f,%f,%f,%f\n" % (lon1,lat1,lon2,lat2))
 	lon1,lat1,lon2,lat2 = [x*2*np.pi/360.0 for x in [lon1,lat1,lon2,lat2]]
 	length= get_dist_2pt_single([lon1,lat1] , [lon2,lat2])
-	#fout.write("Length of the line: " + str(length)+ '\n')
 	myLine=line(lon1,lat1,lon2,lat2)
 	bestDistances,tookTrainMask=computeDistances(myLine,distIndiv,distJaccard,fullOutput=True)
 	testResults=[]
-	
-
+	#print "Starting to Plot...",
+	#f=plt.figure()
+	#ax=f.add_subplot(111)
+	#ax.set_ylim(0,150)
+	#ax.set_xlim(0,1800)
+	#ax.plot([1],[1],'.')
+	#print "Number buddy taking train" , np.sum(tookTrainMask)
+	#ax.plot(distIndiv[~tookTrainMask] , distJaccard[~tookTrainMask], '.' , color='grey')
+	#ax.plot(distIndiv[tookTrainMask] , distJaccard[tookTrainMask],'.',color='green')
+	#ax.quiver(distIndiv[tookTrainMask] , distJaccard[tookTrainMask], bestDistances[tookTrainMask] - distIndiv[tookTrainMask]   ,[0]*np.sum(tookTrainMask),angles='xy', scale_units='xy' , scale=1, color='red',width=0.0001 )
+	#print "done."
 	for testClass in testClassList:
-		#print "Begin: " , str(testClass).split(' ')[0].split('.')[1] , "..." ,  
-		testResults.append(testClass(myLine,applyMaskJaccard(bestDistances),tookTrainMask))
-		#print "Done"
-	#for testResultIndex in range(len(testResults)):
-		#fout.write("Test "+str(testClassList[testResultIndex]).split(' ')[0].split('.')[1] + ": " + str(testResults[testResultIndex]) + '\n')
-	#geoDistVsJaccardDist(lon1,lat1,lon2,lat2,bestDistances,testResults[0],tookTrainMask)
+		result=testClass(myLine,bestDistances,tookTrainMask)
+		testResults.append(result)
+
 	print "Time for a whole iteration: " , time.time()-t0,"Results", testResults
+	#ax.set_title(str(result))
+	#plt.show()
 	write_train(fout,lon1,lat1,lon2,lat2,testResults[0])
 	return testResults
 
+np.seterr(divide='ignore', invalid='ignore')
+
+def get_vect(lon,lat,lons,lats):
+	x = np.array([(lons - lon), ( lats - lat )]).T
+	norm_x = get_norm(x)
+	result = x.T/norm_x
+	n = norm_x==0
+	result[0][n]=0
+	result[1][n]=0
+	return result 
+
+
+#fout=open("temp/out"+ sys.argv[1] + ".txt" ,'w')
+#
+#JUMP_DIST=[200]*lons.size
+#ls_pts=np.array([lons,lats]).T
+#print "NBPTS:", ls_pts.shape[0]
+#for i in range(int(sys.argv[1]), min(int(sys.argv[2]), ls_pts.shape[0]) ):
+#	lon, lat = ls_pts[i] 
+#	cur_dists = get_dist_one_many(lon,lat,lons,lats)
+#	cur_vects = get_vect(lon, lat, lons, lats)
+#	#print cur_vects
+#	#print "test", np.unique(testClassList[0].sortdistIndiv[0:3000])
+#	#print "qwr", len(np.argsort(testClassList[0].distargsort)), len(testClassList[0].get_index_pts(i))
+#	#print testClassList[0].get_index_pts(i)
+#	index_dists = testClassList[0].get_index_pts(i) #[np.argsort(testClassList[0].distargsort)] #np.searchsorted( testClassList[0].sortdistIndiv, cur_dists ) - 1
+#	#print np.unique(index_dists)
+#	new_dists_forward = cur_dists - np.amin([cur_dists, JUMP_DIST], axis=0) 
+#	new_dists_backward = cur_dists + np.amin([cur_dists, JUMP_DIST], axis=0) 
+#	#print  np.unique(testClassList[0].sortdistIndiv)
+#	index_forward = np.searchsorted(testClassList[0].sortdistIndiv, new_dists_forward)
+#	index_backward = np.searchsorted(testClassList[0].sortdistIndiv, new_dists_backward)
+#	#print "sortdistIndiv", testClassList[0].sortdistIndiv[0::10000]
+#	bug=(index_backward < index_dists) | (index_forward > index_dists)
+#	#print "fb_index",zip(index_forward[bug],index_dists[bug],index_backward[bug])
+#	#print "fb_values", zip(new_dists_forward[bug],cur_dists[bug] ,new_dists_backward[bug])
+#	#print index_forward.shape, np.unique(index_forward)
+#	#print testClassList[0].tempname(400,800) 
+#	#print np.array([index_dists,index_forward ]).T 	
+#	#print testClassList[0].tempname(1000,10000)
+#	#print zip(index_dists,index_forward,index_backward)
+#	scores_forward = np.array( [ testClassList[0].tempname(a1, a2) for a1,a2 in np.array([index_dists,index_forward ]).T ])
+#	scores_backward = np.array( [ testClassList[0].tempname(a1, a2) for a1,a2 in np.array([index_dists,index_backward ]).T ])
+#	isBelow = [testClassList[0].sortMaskDistIndiv[a] for a in index_dists ]
+#	scores_forward[cur_dists-new_dists_forward==0]=0
+#	scores_backward[cur_dists-new_dists_backward==0]=0
+#	temp_vect = np.sum((scores_forward - scores_backward) * cur_vects, axis=1)
+#	vect=temp_vect/float(len(scores_forward)) #/np.sqrt(np.power(temp_vect[0],2)+ np.power(temp_vect[1],2))
+#	#print vect
+#	scores_fb = zip(scores_forward, scores_backward)
+#	print zip(testClassList[0].sortdistJaccard[index_dists],scores_forward,scores_backward)#print scores_fb 
+#	fout.write("\t".join([str(i),str(lon), str(lat), str(vect[0]), str(vect[1])]) +'\t' + "\t".join(map(lambda (x,y): str(x) + ',' + str(y),scores_fb)) + "\n")
+#	fout.flush()
+#exit()
+
+torad=lambda x : np.array(x)*2*np.pi/360.0
+#testParams=[(-88.98,31.0,-84.63,33.83)]
 testParams=[(0.0,0.0,0.0,0.0)#empty train
 			] 
 			#,(148.710938,-5.615986,-97.031250,13.923404)#pacific
@@ -310,21 +392,23 @@ fout = open(os.path.join(OUTPUT_FOLDER, "train_geo_out_" + str(maxtdist)) + ".tx
 for testParam in testParams:
 	computeScores(fout,*testParam)
 
-
-#
+#exit(1)
+#Testing one in particular
+#computeScores( fout, *np.append(search_point1, search_point2) )
 
 #searchspace_degree=[]
 value=[]
 value_param=[]
 torad=lambda x : x*2*np.pi/360.0
-for search_point1 in searchspace_degree:
-	for search_point2 in searchspace_degree:
-		
+for search_point1 in [searchspace_degree[i] for i in range(len(searchspace_degree)) if searchspace_valid[i]]:
+	for search_point2 in [searchspace_degree[i] for i in range(len(searchspace_degree)) if searchspace_valid[i]]:
+		#if is_in_bounds(*search_point1) and is_in_bounds(*search_point2):
+		#	continue
 		rpt1, rpt2 = torad(search_point1), torad(search_point2)
 		length=get_dist_2pt_single(rpt1,rpt2)
 		if length <mintdist or length >maxtdist:
 			continue
-		if search_point1[0] > search_point2[0] or search_point1[1] > search_point2[1]:
+		if search_point1[0] > search_point2[1] or search_point1[1] > search_point2[1]:
 			continue
 		#print "Length:", length
 		computeScores(fout,*np.append(search_point1, search_point2))

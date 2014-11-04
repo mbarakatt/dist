@@ -36,10 +36,11 @@ c=0
 for line in sys.stdin:
 	sp=line.split()
 	thisline=lineO(sp)
-	cm_Matrix[thisline.indiv1,thisline.indiv2]+=thisline.gen_len	
-	cm_Matrix[thisline.indiv2,thisline.indiv1]+=thisline.gen_len	
-	nb_Matrix[thisline.indiv1,thisline.indiv2]+=1
-	nb_Matrix[thisline.indiv2,thisline.indiv1]+=1
+	if thisline.gen_len > 18:
+		cm_Matrix[thisline.indiv1,thisline.indiv2]+=thisline.gen_len	
+		cm_Matrix[thisline.indiv2,thisline.indiv1]+=thisline.gen_len	
+		nb_Matrix[thisline.indiv1,thisline.indiv2]+=1
+		nb_Matrix[thisline.indiv2,thisline.indiv1]+=1
 	if c % 10000 == 0:
 		print c
 	c+=1

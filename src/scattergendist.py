@@ -21,6 +21,16 @@ except IOError as e:
 except:
 	outpic=""
 
+try:
+	myxlim = map(float,args[args.index("--xlim")+1].split(','))
+except:
+	myxlim=(0,0)
+
+
+try:
+	myylim = map(float, args[args.index("--ylim")+1].split(','))
+except:
+	myylim=(0,0)
 
 def parse_file_matrix(filep):
 	temp=[]
@@ -37,10 +47,27 @@ gendist_data=parse_file_matrix(f_gendist)
 geodist_data=parse_file_matrix(f_geodist)
 
 plot(geodist_data,gendist_data,'.')
-ylim(0,150)
-xlim(0,1400)
-xlabel(args[2].split('/')[-1])
-ylabel(args[1].split('/')[-1])
+
+#
+if True:
+	bins=np.linspace(0,1800,num=18+1)
+	ibd=np.histogram(geodist_data,bins,weights=gendist_data)[0]
+	counts=np.histogram(geodist_data,bins)[0]
+	print ibd/counts 
+	print f
+	plot(ibd/counts,(bins+50)[:-1])
+
+if myxlim != (0,0):
+	xlim(*myxlim)
+
+if myylim != (0,0):
+	ylim(*myylim)
+
+xfilename=args[1].split('/')[-1]
+yfilename=args[2].split('/')[-1]
+xlabel(xfilename)
+ylabel(yfilename)
+title (yfilename + " vs " + xfilename)
 #title('With  5 waypoints.')
 if outpic != "":
 	savefig(outpic)

@@ -16,6 +16,7 @@ make_bbox			   = lambda llcrnr, urcrnr: dict(zip(corner_names, llcrnr + urcrnr))
 BOUNDS_				 = [("WORLD",		 ((-180, -90), (180, 90))),
 						   ("MAINLAND_USA",  ((-130,  25), (-60, 50))),
 						   ("AMERICAS",	  ((-170, -60), (-30, 75))),
+						   ("SCCS",	  ((-100, 25), (-70, 42))),
 						   ("NORTH_AMERICA", ((-170,  30), (-30, 75))),
 						   ("SOUTH_AMERICA", ((-90,  -60), (-30, 15))),
 						   ("AFRICA",		((-30,  -45), (60,  45))),
@@ -24,7 +25,7 @@ BOUNDS				  = dict(map(lambda (k, v): (k, make_bbox(*v)), BOUNDS_))
 
 latlon			  = True
 threshold		   = 0.2
-desired_bounds	  = "WORLD"
+desired_bounds	  = "SCCS"
 
 def is_in_bounds((lon, lat), bounds):
 	return (lon > bounds['llcrnrlon'] and lon < bounds['urcrnrlon'] and
@@ -37,7 +38,7 @@ def show_usage():
 	p("  The positions file is expected to be in the format 'latitude,longitude'. If it is")
 	p("stored in the reverse format, then the -l switch can be used to flip the interpretation.")
 	p("Only when two language are distanced less than `threshold` will their distance-line be drawn.")
-	p("The default threshold is 0.4.")
+	p("The default threshold is 0.22")
 	p("More line can be added on the graph with the -m switch, beware the input format is weird. By default the first 20 trains are drawn.")
 	p("The desired bounds to examine can be indicated with the -b switch. The default bounds contain the whole world.")
 	p("Valid bounds consist of:")
@@ -113,10 +114,10 @@ def plot_map_relatedness(jaccard,positions, bounds=desired_bounds):
 		if not (is_in_bounds(start, BOUNDS[desired_bounds]) and is_in_bounds(end, BOUNDS[desired_bounds])):
 			print("skipping undesired line")
 			continue
-		plot_great_line(start,end,(1., 0.5, 0.5, 1-(distance / greatest_distance)),m)
+		plot_great_line(start,end,(1., 0.5, 0.5, min(1-(distance / greatest_distance),1)),m)
 		
 	xs, ys = m(*zip(*filter(lambda x: is_in_bounds(x, BOUNDS[desired_bounds]), positions)))
-	m.scatter(xs, ys,marker='o',s=0.5,color=(0.,0.,1.,1.))
+	m.scatter(xs, ys,marker='o',s=10.0,color=(0.,0.,1.,1.))
 	#plt.gcf().set_size_inches(11, 8.5)
 	#plt.savefig("test.jpg", dpi=600)
 	return m
@@ -158,6 +159,7 @@ if __name__ == "__main__":
 	jaccard_filename	= ""
 	output_filename	 = ""
 	more_lines_filename = ""
+	flipyaxis=False
 
 	try:
 		i = 1
@@ -184,6 +186,8 @@ if __name__ == "__main__":
 				i += 1
 			elif arg == '-l':
 				latlon = False
+			elif arg == '-y':
+				flipyaxis = True
 			elif arg == "-h" or arg == "--help" or arg == "help":
 				show_usage()
 				sys.exit(1)
@@ -218,7 +222,14 @@ if __name__ == "__main__":
 
 	try:
 		with open(jaccard_filename) as f:
-			jaccard = parse_jaccard(f)
+			jaccard = np.array(parse_jaccard(f))
+			if flipyaxis:
+				max = 150 #np.max(jaccard)
+				jaccard = (jaccard - max)/(np.min(jaccard)-max)
+				threshold =(threshold - max)/(np.min(jaccard)-max)
+ 
+				#print jaccard[0,0]
+
 	except Exception as e:
 		print("An error occurred while parsing the Jaccard distance file:", e)
 		sys.exit(2)
