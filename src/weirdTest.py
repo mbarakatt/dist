@@ -1,13 +1,14 @@
 import numpy as np
 from pylab import *
-from scipy.stats import rankdata
+from scipy.stats import rankdata, spearmanr
 import time
 LARGE_NUMBER=iinfo('i').max
 
 
 class weirdTest:
 	def __init__(self,distIndiv,distRelated, threshold=0.22 , negateyaxis=False):
-		self.sizeMatrix=distRelated.shape[0]
+		self.sizeMatrix = distRelated.shape[0]
+		self.distRelated_matrix = distRelated
 		self.triu_indices = np.triu_indices(distRelated.shape[0],1)
 		self.matrixDistJaccard = distRelated
 		self.distRelated=distRelated[self.triu_indices]
@@ -17,7 +18,7 @@ class weirdTest:
 			self.distRelated *= -1
 		self.maskDistJaccard = (self.distRelated <= self.threshold)
 		self.nb_y_below_t = np.sum(self.maskDistJaccard )
-		self.y_temp = rankdata((~self.maskDistJaccard) * LARGE_NUMBER + self.distRelated )
+		#self.y_temp = rankdata((~self.maskDistJaccard) * LARGE_NUMBER + self.distRelated )
 		self.sizexss = float(np.power(self.distRelated.size,3))
 		######
 		self.distIndiv=distIndiv[self.triu_indices]
@@ -26,7 +27,7 @@ class weirdTest:
 		self.sortdistRelated = self.distRelated[self.distargsort]
 		#print np.unique(self.distIndiv),np.unique(self.distIndiv).size
 		self.sortMaskDistIndiv=self.maskDistJaccard[self.distargsort]#List of bool in same order a sortdistIndiv that says if dist is above or below jaccard T.
-		self.sorty_temp=self.y_temp[self.distargsort]
+		#self.sorty_temp=self.y_temp[self.distargsort]
 		#print np.unique(self.y_temp),np.unique(self.sorty_temp)
 		self.vert_line_index=self.get_line_index()
 	
@@ -41,6 +42,8 @@ class weirdTest:
 		for i in range(self.sizeMatrix-1):
 			val.append(self.sizeMatrix - 1 - len(val)+val[-1])
 		return np.array(val)
+	def spearman(self,bestDistances):
+		return spearmanr(bestDistances[self.triu_indices], self.distRelated )[0]
 
 	#get_index_pts 
 	def get_index_pts(self,i):
@@ -91,9 +94,12 @@ class weirdTest:
 		retval=self.spear(bestDistancesFlatten)
 		return retval
 
-	def spear(self, xss):
-		yRanks=np.amin([self.y_temp, rankdata((self.maskDistJaccard) * LARGE_NUMBER + xss)  + self.nb_y_below_t],axis=0)
-		retval= 1 -np.sum(np.power(rankdata(xss) - yRanks,2))
+	def spear(self, xs):
+		self.y_temp = rankdata(self.distRelated) + (~self.maskDistJaccard)*LARGE_NUMBER
+		yRanks = np.amin([self.y_temp, rankdata((self.maskDistJaccard) * LARGE_NUMBER + xs)  + self.nb_y_below_t],axis=0)
+		#print zip(yRanks[0::20],(self.y_temp)[0::20],(rankdata((self.maskDistJaccard) * LARGE_NUMBER + xs)  + self.nb_y_below_t)[0::20], rankdata(xs)[0::20])
+		#print "numberptsbelowt: ", np.sum(self.maskDistJaccard)
+		retval = 1 -np.sum(np.power(rankdata(xs) - yRanks,2))
 		return retval
 
 

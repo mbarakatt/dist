@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 
 from mpl_toolkits.basemap import Basemap
 from itertools import imap
@@ -52,36 +52,40 @@ def parse_jaccard(handle):
 
 
 def parse_best_trains(handle):
-	#temp=map(lambda line : map(float,line.replace('[','').replace(']','').replace('\n','').split(',')) , handle)
-	
-	#print(temp)
-	#temp = map(lambda l : [(-(360-l[1])*(l[1]>180) + l[1]*(l[1]<=180),(90-l[2])*(l[2]<90)-(l[2]-90)*(l[2]>=90)), (-(360-l[3])*(l[3]>180) + l[3]*(l[3]<=180),(90-l[4])*(l[4]<90)-(l[4]-90)*(l[4]>=90))] , map( lambda line : map(float ,line.replace('[','').replace(']','').replace('\n','').split(',')) , handle))
-	#temp = map(lambda l : [tuple(l[1:3]), tuple(l[3:5])] , map( lambda line : map(float ,line.replace('[','').replace(']','').replace('\n','').split(',')) , handle))
 	temp= map(lambda l :l.split(',') ,handle)
 	return temp
 
 
 def savefig(output_filename,m,title=""):
-	plt.title(title)
+	#plt.title(title)
 	if output_filename:
-		#plt.gcf().set_size_inches(11, 8.5)
-		plt.savefig(output_filename,bbox_inches='tight', dpi=750)
+		plt.savefig(output_filename,bbox_inches='tight', dpi=200)
 	else:
+		print('The figure is shown...')
 		plt.show()
 
-def get_map(bounds=desired_bounds):
+def get_map(bounds=desired_bounds,showlines=True):
 	m = Basemap(projection='cyl', resolution='i', **BOUNDS[desired_bounds])
-	m.drawcoastlines()
-	m.drawstates()
-	m.drawcountries()
+	if showlines:
+		m.drawcoastlines()
+		m.drawstates()
+		m.drawcountries()
 	return m
 
-def plot_map_relatedness(jaccard,positions, bounds=desired_bounds):
+def plot_map_relatedness(m,jaccard,positions, bounds=desired_bounds,t=threshold):
+	"""
+	m: can be obtained by calling the get_map method
+	jaccard: a matrix
+	positions: a list of (lon,lat) in degrees
+	t: will draw the value contained in jaccard only if jaccard < t
+	"""
+
 	good_ones = [] # :: (distance, (start, end))
 	greatest_distance = 0
 	total = len(jaccard) * (len(jaccard) - 1)
 	approved = 0
 	denied = 0
+	print(len(positions), len(jaccard))
 	for (i, others) in enumerate(jaccard):
 		position_i = positions[i]
 		for (j, distance) in enumerate(others):
@@ -90,7 +94,7 @@ def plot_map_relatedness(jaccard,positions, bounds=desired_bounds):
 				#print(approved + denied, '/', total, " (", approved, " approved, ", denied, " denied)", sep='')
 			if i == j :
 				continue
-			if distance > threshold:
+			if distance > t:
 				denied += 1
 				continue
 			position_j = positions[j]
@@ -105,39 +109,34 @@ def plot_map_relatedness(jaccard,positions, bounds=desired_bounds):
 
 	print("Plotting... ", end='')
 
-	m = Basemap(projection='cyl', resolution='i', **BOUNDS[desired_bounds])
-	m.drawcoastlines()
-	m.drawstates()
-	m.drawcountries()
-
 	for (distance, (start, end)) in good_ones:
 		if not (is_in_bounds(start, BOUNDS[desired_bounds]) and is_in_bounds(end, BOUNDS[desired_bounds])):
 			print("skipping undesired line")
 			continue
-		plot_great_line(start,end,(1., 0.5, 0.5, min(1-(distance / greatest_distance),1)),m)
-		
+		m = plot_great_line(start, end ,m , color=(1., 0.5, 0.5, min(1-(distance / greatest_distance),1)))
 	xs, ys = m(*zip(*filter(lambda x: is_in_bounds(x, BOUNDS[desired_bounds]), positions)))
 	m.scatter(xs, ys,marker='o',s=10.0,color=(0.,0.,1.,1.))
 	#plt.gcf().set_size_inches(11, 8.5)
 	#plt.savefig("test.jpg", dpi=600)
 	return m
 	
-#expecting input in (lon,lat) format
-def plot_great_line(start, end, color, m):
-	print("COL",color)
-	
+def plot_great_line(start, end, m, color=(0.0,0.6,0.1,1)):
+	"""
+	Draws a line on the map between the points start and end.
+	start : starting point in radiant [lon,lat]
+	end : same as start
+	"""
 	#color=(0.27,0.,0.,1.)
 	if start[0] > 179.8:
 		start = (179.8, start[1])
 	if end[0] > 179.8:
 		end=(179.8, end[1])
-	print("start", start, "end", end)
-
+	#print("start", start, "end", end)
 	line, = m.drawgreatcircle(start[0], start[1], end[0], end[1], color=color,linewidth=0.6)
 	p = line.get_path()
 	# find the index which crosses the dateline (the delta is large)
 	cut_point = np.where(np.abs(np.diff(p.vertices[:, 0])) > 200)[0]
-	print("CUTPOINT",cut_point,len(cut_point)>1)
+	#print("CUTPOINT",cut_point,len(cut_point)>1)
 	if len(cut_point) >= 1:
 		cut_point = cut_point[0]
 		print("YES")
@@ -151,7 +150,7 @@ def plot_great_line(start, end, color, m):
 									p.vertices[cut_point+1:, :]])
 		p.codes = None
 		p.vertices = new_verts
-
+	return m
 
 if __name__ == "__main__":
 	args = sys.argv
@@ -245,11 +244,10 @@ if __name__ == "__main__":
 
 	print("Figuring out what to plot... ", end='')
 
-	m=plot_map_relatedness(jaccard,positions)
+	m=plot_map_relatedness(get_map(),jaccard,positions)
 	if more_lines_filename != "":
 		for item in best_trains[0:20]:
-			plot_great_line(item[0],item[1],(1.,0,1.,1.),m)
-	#plot_great_line([-20,-40],[100,45],(1.,0,1.,1.),m)
+			plot_great_line(item[0],item[1],m ,(1.,0,1.,1.))
 	savefig(output_filename,m)
 
 	print("Done!")
