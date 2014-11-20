@@ -1,3 +1,7 @@
+print "Loading modules"
+import matplotlib 
+matplotlib.use('Agg')
+
 import geode
 
 from simulations import *
@@ -15,6 +19,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from scipy.interpolate import interp1d
+
+print "Done loading modules"
+
 
 args = sys.argv
 
@@ -41,6 +48,7 @@ except:
 EXP_INDIV_PER_POINT = 4 
 try:
 	THRESHOLD = float(next_arg('-t')) * (10**7)
+	print THRESHOLD
 except:
 	print "No Threshold specified."
 	print usage()
@@ -105,17 +113,21 @@ IBD_matrix = get_IBD_Matrix(best_dist_matrix,expected_IBD_per_pair_x,expected_IB
 
 
 
-draw_point_IBD(geode.toDegrees(indiv_positions),IBD_matrix, out_folder + 'point_IBD.png' )
+print "Start drawing point_IBD"
+draw_point_IBD(geode.toDegrees(indiv_positions),IBD_matrix,THRESHOLD, out_folder + 'point_IBD.png' )
 np.savetxt(out_folder  + indiv_position_out_path, indiv_positions,delimiter='\t')
+print "Done drawing point_IBD"
 
 
-
+print "start drawing scatterxy"
 show_scatterxy(geodesic_dist_matrix,IBD_matrix,out_folder)
+print "Done drawing scatterxy"
 
-print "test3"
 np.savetxt(out_folder + relatedness_matrix_out_path, IBD_matrix ,delimiter='\t')
 
-#Test if real train offers better correlation than no trains
+print "Testing soundness"
+
+#Tests if real train offers better correlation than no trains
 import weirdTest
 def test_soundness():
 	myweirdTest = weirdTest.weirdTest(geodesic_dist_matrix, IBD_matrix,threshold=THRESHOLD,negateyaxis = True)

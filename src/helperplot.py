@@ -16,9 +16,9 @@ def show_scatterxy(geodesic_dist_matrix,IBD_matrix,out_folder):
 	"""This method makes use of scatterxy define in the same module to show the actual picture."""
 	f = plt.figure()
 	ax = f.add_subplot(111)
-	ax = scatterxy(ax, geodesic_dist_matrix, IBD_matrix)
+	ax = scatterxy(ax, geodesic_dist_matrix, IBD_matrix,ylim=(0,10**8))
 	plt.savefig(out_folder + 'scatterxy.png')
 
-def draw_point_IBD(positions,jaccard, output_filename):
-	m=plot_map_relatedness(get_map(),jaccard,positions)
+def draw_point_IBD(positions,jaccard,threshold, output_filename):
+	m=plot_map_relatedness(get_map(),-jaccard,positions,t=-threshold)
 	savefig(output_filename,m)

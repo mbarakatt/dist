@@ -79,7 +79,7 @@ def plot_map_relatedness(m,jaccard,positions, bounds=desired_bounds,t=threshold)
 	positions: a list of (lon,lat) in degrees
 	t: will draw the value contained in jaccard only if jaccard < t
 	"""
-
+	print ("THrES", t)
 	good_ones = [] # :: (distance, (start, end))
 	greatest_distance = 0
 	total = len(jaccard) * (len(jaccard) - 1)
@@ -98,16 +98,16 @@ def plot_map_relatedness(m,jaccard,positions, bounds=desired_bounds,t=threshold)
 				denied += 1
 				continue
 			position_j = positions[j]
+			if (position_j == position_i).all():
+				denied += 1
+				continue
 			good_ones.append( (distance, (position_i, position_j)) )
 			if distance > greatest_distance:
 				greatest_distance = distance
 			approved += 1
 
 	greatest_distance *= 1.05
-
-	print("Done!")
-
-	print("Plotting... ", end='')
+	print("Plotting %d lines... " % len(good_ones))
 
 	for (distance, (start, end)) in good_ones:
 		if not (is_in_bounds(start, BOUNDS[desired_bounds]) and is_in_bounds(end, BOUNDS[desired_bounds])):
@@ -240,7 +240,6 @@ if __name__ == "__main__":
 			print("An error occurred while parsing the more line file:",e)
 
 
-	print("Done!")
 
 	print("Figuring out what to plot... ", end='')
 

@@ -28,8 +28,8 @@ from geode import *
 print(" Done")
 
 #importing bounds
-#bounds_pt1, bounds_pt2= [(-100, 25), (-70, 42)] #These are the bounds I used for the SCCS dataset
-bounds_pt1, bounds_pt2= [(-180, -90), (180, 90)]
+bounds_pt1, bounds_pt2= [(-100, 25), (-70, 42)] #These are the bounds I used for the SCCS dataset
+#bounds_pt1, bounds_pt2= [(-180, -90), (180, 90)]
 #Input should be in degrees
 def is_in_bounds(lon,lat): 
 	result = bounds_pt1[0] < lon and lon < bounds_pt2[0] and bounds_pt1[1] < lat and lat < bounds_pt2[1]
@@ -53,7 +53,7 @@ except:
 print "MinDist:",mintdist,"MaxDist:",maxtdist
 #---CONSTANT DEFINITION-------
 DISTANCE_MASK=20000 #Km
-THRESHOLD = float(sys.argv[sys.argv.index("-t") + 1])
+THRESHOLD = float(sys.argv[sys.argv.index("-t") + 1]) * (10**7)
 print "THRESHOLD:",THRESHOLD
 JACCARD_MASK = 1.0 #below this number is included
 OUTPUT_FOLDER=outfolder #os.path.join("../results" , time.strftime("%Y.%m.%d.%Hh%mm"))
@@ -97,11 +97,10 @@ lats = pos[:,1]#(90-pos[1])*(pos[1]>0) + ( -pos[1] + 90 ) * ( pos[1] <= 0 )
 #distIndiv = parse_file_geo_dist(file("geographicGeoDistLanguages.txt"))
 #distIndiv = parse_file_geo_dist(file("../SCCS/geodesicDist.txt"))
 distIndiv = get_dist(lons,lats) 
-
-#Destription get_spherical_coor: Return points in lons, lats
+print "Nb Valid points: " , np.sum(distJaccard > THRESHOLD) #Destription get_spherical_coor: Return points in lons, lats
 
 #list of points
-searchspace_euclidean=np.array(map(lambda x : x.split(" "), open("searchspheres/searchspace3.txt",'r').read().split("\n"))[:-1])#*EARTH_RADIUS
+searchspace_euclidean=np.array(map(lambda x : x.split(" "), open("searchspheres/searchspace17.txt",'r').read().split("\n"))[:-1])#*EARTH_RADIUS
 searchspace_euclidean=[map(lambda x : float(x)*EARTH_RADIUS, item) for item in searchspace_euclidean]
 #print len(searchspace_euclidean)
 #lons, lats
