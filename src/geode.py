@@ -98,7 +98,7 @@ def git_dist_many_many(lons1,lats1,lons2,lats2):
 	arg = 2 * EARTH_RADIUS * np.arcsin(np.sqrt(arg)) 
 	return arg
 
-#Gets position in in format lons and lats and returs the triplet xs,ys,zs
+#Gets position in in format lons and lats (radiants) and returs the triplet xs,ys,zs
 def get_dist(lons,lats): # great circle distance.
 	matrix_lats, matrix_lons = map(lambda v : np.array([v for i in range(len(v))]) , [lats,lons])
 	arg = np.power(np.sin((matrix_lats-np.array([lats]).transpose())/2.0), 2) + np.cos(np.array([lats]).transpose()) * np.cos(matrix_lats) * np.power(np.sin((matrix_lons-np.array([lons]).transpose())/2),2)

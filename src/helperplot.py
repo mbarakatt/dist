@@ -19,6 +19,9 @@ def show_scatterxy(geodesic_dist_matrix,IBD_matrix,out_folder):
 	ax = scatterxy(ax, geodesic_dist_matrix, IBD_matrix,ylim=(0,10**8))
 	plt.savefig(out_folder + 'scatterxy.png')
 
-def draw_point_IBD(positions,jaccard,threshold, output_filename):
+def draw_point_IBD(positions,jaccard,threshold, output_filename,train=None):
 	m=plot_map_relatedness(get_map(),-jaccard,positions,t=-threshold)
+	if train != None:
+		print "Drawing Train."
+		m = plot_great_line([train.lon1_d,train.lat1_d], [train.lon2_d, train.lat2_d],m)
 	savefig(output_filename,m)

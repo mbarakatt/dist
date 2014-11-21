@@ -1,6 +1,10 @@
 import numpy as np
+
 from scipy.interpolate import interp1d
+
 import geode
+
+import jaccard_plot
 
 def interp1d_wrapper(xs,ys):
 	"""This method is needed because the normal interp1d method expects the xs to be monotone# increasing
@@ -33,7 +37,7 @@ def get_expected_IBD_per_pair_at_dist(xs,expected_IBD_per_pair_x,expected_IBD_pe
 	
 	return return_array
 	
-def load_and_filter_grid(file_path,bounds):
+def load_and_filter_grid(grid_file_path,bounds):
 	"""Loads and filter a list of coordinates. Returns a list of point within bounds in degrees.  
 	file_path: the path to the file to load
 	bounds: a list of two points in radiants longitude before latitudes 
@@ -46,7 +50,7 @@ def load_and_filter_grid(file_path,bounds):
 			new_grid.append(coordinates)
 	return np.array(new_grid)
 
-def gen_indiv(grid):
+def gen_indiv(grid,EXP_INDIV_PER_POINT):
 	"""This function takes a grid (list of points (lon,lat) ) and returns a list of points in the same format. One for each individual that is generated """
 	nb_indiv_per_point=np.random.poisson(EXP_INDIV_PER_POINT,len(grid))
 	indiv_positions = []

@@ -25,7 +25,7 @@ BOUNDS				  = dict(map(lambda (k, v): (k, make_bbox(*v)), BOUNDS_))
 
 latlon			  = True
 threshold		   = 0.2
-desired_bounds	  = "SCCS"
+desired_bounds	  = "WORLD"
 
 def is_in_bounds((lon, lat), bounds):
 	return (lon > bounds['llcrnrlon'] and lon < bounds['urcrnrlon'] and
@@ -102,7 +102,7 @@ def plot_map_relatedness(m,jaccard,positions, bounds=desired_bounds,t=threshold)
 				denied += 1
 				continue
 			good_ones.append( (distance, (position_i, position_j)) )
-			if distance > greatest_distance:
+			if distance < greatest_distance:
 				greatest_distance = distance
 			approved += 1
 
@@ -113,7 +113,9 @@ def plot_map_relatedness(m,jaccard,positions, bounds=desired_bounds,t=threshold)
 		if not (is_in_bounds(start, BOUNDS[desired_bounds]) and is_in_bounds(end, BOUNDS[desired_bounds])):
 			print("skipping undesired line")
 			continue
-		m = plot_great_line(start, end ,m , color=(1., 0.5, 0.5, min(1-(distance / greatest_distance),1)))
+		#m = plot_great_line(start, end ,m , color=(1., 0.5, 0.5, max(1-(distance / greatest_distance),0)))
+		
+		m = plot_great_line(start, end ,m , color=(1., 0.5, 0.5, min(1,0.3 + (distance - t)/(greatest_distance - t )) ))
 	xs, ys = m(*zip(*filter(lambda x: is_in_bounds(x, BOUNDS[desired_bounds]), positions)))
 	m.scatter(xs, ys,marker='o',s=10.0,color=(0.,0.,1.,1.))
 	#plt.gcf().set_size_inches(11, 8.5)
@@ -123,7 +125,7 @@ def plot_map_relatedness(m,jaccard,positions, bounds=desired_bounds,t=threshold)
 def plot_great_line(start, end, m, color=(0.0,0.6,0.1,1)):
 	"""
 	Draws a line on the map between the points start and end.
-	start : starting point in radiant [lon,lat]
+	start : starting point in degrees [lon,lat]
 	end : same as start
 	"""
 	#color=(0.27,0.,0.,1.)

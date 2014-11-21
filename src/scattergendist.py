@@ -43,13 +43,14 @@ def parse_file_matrix(filep):
 	return np.concatenate(temp)
 
 sys.stdout.write("\n")
-gendist_data=parse_file_matrix(f_gendist)
-geodist_data=parse_file_matrix(f_geodist)
+gendist_data=np.loadtxt(f_gendist)
+geodist_data=np.loadtxt(f_geodist,delimiter='\t')
 
+print "Sizes:" , gendist_data.shape , geodist_data.shape
 plot(geodist_data,gendist_data,'.')
 
 #
-if True:
+if False:
 	bins=np.linspace(0,1800,num=18+1)
 	ibd=np.histogram(geodist_data,bins,weights=gendist_data)[0]
 	counts=np.histogram(geodist_data,bins)[0]
@@ -68,7 +69,12 @@ yfilename=args[2].split('/')[-1]
 xlabel(xfilename)
 ylabel(yfilename)
 title (yfilename + " vs " + xfilename)
+triu = np.triu_indices(len(gendist_data),k=1)
+print geodist_data[triu]
+scatter(geodist_data[triu],gendist_data[triu])
 #title('With  5 waypoints.')
+print "Saving figure"
+
 if outpic != "":
 	savefig(outpic)
 else:

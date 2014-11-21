@@ -28,8 +28,8 @@ scores = all_lines[:,4]
 max = np.max(scores)
 min = np.min(scores)
 
-desired_bounds="SCCS"
-m=get_map(showlines=False)
+desired_bounds="WORLD"
+m=get_map(bounds=desired_bounds, showlines=True)
 
 for line in all_lines[1:]:
 	length = geode.get_dist([line[0],line[2]], [line[1],line[3]])[0,1]
@@ -44,6 +44,16 @@ for line in all_lines[1:]:
 			plot_great_line([ line[0], line[1] ],[line[2], line[3] ],m , color=( 1, 0. , 0 , 1.  -(line[4]-min)/(scores[0]-min)))
 		
 
+try: 
+	print save_folder + "train_position.txt"
+	train = geode.line(*np.loadtxt(save_folder + "train_position.txt", delimiter='\t'),inputformat="degrees")	
+except:
+	print "No train Specified"
+	train = None
+
+if train != None:
+	print "Drawing train."
+	m = plot_great_line([train.lon1_d, train.lat1_d], [train.lon2_d, train.lat2_d], m)
 try:
 	os.mkdir("./pic/")
 except:
